@@ -73,7 +73,7 @@ builder's call, to be checked against current guidance.
   people including the backs of heads and partial bodies.
 - Organiser enters a hand count as a range (or a single number, stored as a range of one).
 - Camera count is also a range: tiled detection run at three confidence levels (low, middle,
-  high), with the middle as the point estimate. The levels are fixed in advance, never tuned per
+  high), with the middle as the point estimate. Overlapping detections are merged by IoU and also when 60% or more of a box lies inside a higher-scoring box (tile seams otherwise split people into partial boxes: 2.5x over-count on a close group of 14). The levels are fixed in advance, never tuned per
   photo. The spike showed counts swing widely with the threshold.
 - Flag = the two ranges do not overlap, by more than 3 people (tunable server-side). The
   threshold and the camera range rule need calibrating on many hand-counted photos.

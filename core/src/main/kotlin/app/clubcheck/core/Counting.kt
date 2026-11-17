@@ -9,18 +9,28 @@ fun interface PersonDetector {
 
 data class CameraCount(val range: Range, val point: Int, val boxesAtPoint: List<Box>)
 
-private fun iou(a: Box, b: Box): Float {
+private fun area(b: Box) = (b.x2 - b.x1) * (b.y2 - b.y1)
+
+private fun intersection(a: Box, b: Box): Float {
     val iw = minOf(a.x2, b.x2) - maxOf(a.x1, b.x1); val ih = minOf(a.y2, b.y2) - maxOf(a.y1, b.y1)
-    if (iw <= 0f || ih <= 0f) return 0f
-    val inter = iw * ih
-    val union = (a.x2 - a.x1) * (a.y2 - a.y1) + (b.x2 - b.x1) * (b.y2 - b.y1) - inter
-    return inter / union
+    return if (iw <= 0f || ih <= 0f) 0f else iw * ih
 }
 
-/** Greedy non-maximum suppression: keeps the higher score of any pair overlapping by more than [iou]. */
-fun nms(boxes: List<Box>, iou: Float = 0.5f): List<Box> {
+/**
+ * Greedy non-maximum suppression. A box is dropped when a higher-scoring kept box overlaps it by more than
+ * [iou], or when at least [containment] of its own area lies inside that box. The second rule merges the
+ * partial boxes that tile seams cut a person into (their IoU with the whole body is low). Two people standing
+ * side by side, or one partly behind another (under [containment] of the smaller box covered), stay separate.
+ */
+fun nms(boxes: List<Box>, iou: Float = 0.5f, containment: Float = 0.6f): List<Box> {
     val kept = ArrayList<Box>()
-    for (b in boxes.sortedByDescending { it.score }) if (kept.none { iou(it, b) > iou }) kept += b
+    for (b in boxes.sortedByDescending { it.score }) {
+        val duplicate = kept.any { k ->
+            val inter = intersection(k, b)
+            inter > 0f && (inter / (area(k) + area(b) - inter) > iou || inter / area(b) >= containment)
+        }
+        if (!duplicate) kept += b
+    }
     return kept
 }
 

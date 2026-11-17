@@ -35,6 +35,21 @@ class CountingTest {
         assertEquals(listOf(0.9f, 0.3f), kept.map { it.score })
     }
 
+    @Test fun nmsMergesAPartialBoxInsideALargerOne() {
+        // a tile seam clipped the same person: IoU is only 0.32 but 100% of the small box lies inside the big one
+        val kept = nms(listOf(Box(0f, 0f, 100f, 300f, 0.9f), Box(10f, 0f, 90f, 120f, 0.5f)))
+        assertEquals(1, kept.size); assertEquals(0.9f, kept[0].score)
+    }
+
+    @Test fun nmsKeepsTwoSideBySidePeople() {
+        assertEquals(2, nms(listOf(Box(0f, 0f, 100f, 300f, 0.9f), Box(90f, 0f, 190f, 300f, 0.8f))).size)
+    }
+
+    @Test fun nmsKeepsSomeoneStandingPartlyBehindAnother() {
+        // only 30% of the smaller box is covered: a different person, not a fragment
+        assertEquals(2, nms(listOf(Box(0f, 0f, 100f, 300f, 0.9f), Box(70f, 100f, 170f, 200f, 0.6f))).size)
+    }
+
     @Test fun countPeopleUsesThreeConfidenceLevels() {
         val boxes = listOf(0.9f, 0.6f, 0.4f, 0.3f, 0.2f, 0.1f).mapIndexed { i, s -> box(100f + i * 180f, s) }
         val result = countPeople(blank(), Fake(boxes))

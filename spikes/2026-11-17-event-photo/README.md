@@ -35,6 +35,22 @@ Both counts are shown and stored as ranges, because neither is exact.
 - Conclusion: the camera count is a rough estimate. The hand-vs-camera flag should be loose, and
   the threshold needs calibrating on many photos before anyone relies on it.
 
+## Second photo and the merge rule (2026-11-17)
+A second photo: a tight group of 14 people (10 participants, 4 mentors/parents, hand count 14) standing
+close to the camera. The photo is not committed (it shows children). Compare rules with `compare.py`.
+
+| Rule (counts at confidence 0.35 / 0.25 / 0.15) | Photo 1 (hand about 60, I count about 45 visible) | Photo 2 (14) |
+|---|---|---|
+| Whole image, IoU merge | 31 / 36 / 43 | 12 / 13 / 14 |
+| 3x3 tiles + whole, IoU merge only (first plan) | 53 / 58 / 76 | 35 / 35 / 37 |
+| 3x3 tiles + whole, plus containment merge (>= 60% of a box inside a higher-scoring box) | 39 / 41 / 44 | 13 / 14 / 14 |
+
+Tile seams cut people into partial boxes that IoU cannot merge, so the first plan rule over-counted both
+photos (2.5x on the close group). The containment merge fits both. Cautions: two photos; the rule was
+tried once (0.6), but I chose it after seeing the over-count; a person standing mostly behind another can be
+merged away in a dense crowd (undercount); the resulting range is narrow because it reflects detector
+confidence only, not real uncertainty (photo 1 is about 45 against 39-44). Keep calibrating on more photos.
+
 ## Image codec (strip + hidden watermark), 1280x720
 Payload 91 bytes + 40 Reed-Solomon bytes = 131 bytes (1048 bits). Strip: 13 x 86 cells of 8px.
 Watermark: one DCT coefficient per 8x8 block (quantisation index modulation), only in blocks with
