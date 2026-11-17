@@ -30,6 +30,7 @@ also travel as the image alone, so the image itself is the record.
 
 ## Anti-goals (failure even if it "works")
 - Any recognisable face reaching the cloud or leaving the phone in a shared image.
+- Any precise location (finer than the roughly 5 km cell) being stored, shared or embedded.
 - A shared image whose hidden data dies after one chat-app hop.
 - Needing the cloud to make a check-in.
 
@@ -75,8 +76,8 @@ Image embedding: the user chose the **recompression-proof** route over lossless-
 
 ### The shareable image
 Fixed export size so chat apps do not rescale it (target long edge 1280px, JPEG-safe).
-1. **Visible overlay:** club title, date, hand count, camera count, a flag marker if the counts
-   disagree, in a clear pixel style. Readable even if everything else fails.
+1. **Visible overlay:** club title, local date and time, coarse area, hand count, camera count, a
+   flag marker if the counts disagree, in a clear pixel style. Readable even if everything else fails.
 2. **Film-soundtrack data strip:** a vertical strip along one edge made of large coarse blocks
    (chunky, high-contrast, in the dark pixel style), carrying the full payload with strong
    error correction, plus fiducial markers so a decoder can find and de-skew it. Large cells make
@@ -87,8 +88,25 @@ Fixed export size so chat apps do not rescale it (target long edge 1280px, JPEG-
    modest resizing. This is the cross-check, and survives even if the strip is cropped off.
 4. Decode order: strip first, then watermark; if both decode they must agree, else flag.
 
+### Time and coarse location (added after review; my calls)
+- **Time:** the phone's clock at the first photo, stored as UTC plus the local timezone offset.
+  The overlay shows local date and time. The cloud also records when it received the check-in;
+  a large gap between the two (a wrong phone clock, or an old image ingested late) is flagged,
+  not rejected.
+- **Location is coarse by construction.** The phone asks for approximate location only, snaps it
+  to a grid of about 5 km (0.05 degrees of latitude and longitude) on the device, and discards the
+  exact fix. Only the snapped cell is saved, shared, embedded or uploaded. No precise coordinates
+  exist anywhere in the system, because clubs may meet in private homes.
+- It is opt-in per check-in (default on for a club once granted). The organiser can edit the area
+  or leave it out. A check-in without location is valid.
+- Offline-safe: no reverse geocoding on the phone. The overlay shows the snapped cell as rounded
+  coordinates; the cloud may add a place name later for the dashboard.
+- Uses: grouping active clubs by area, and a sanity check that a club's check-ins stay in one
+  region. It is not a geofence and is never used to track people.
+
 ### Payload (compact, versioned)
-version, club URL (compressed), event id (random), timestamp, hand count, camera count, photo
+version, club URL (compressed), event id (random), timestamp (UTC) and timezone offset, coarse
+location cell (two small integers, or empty), hand count, camera count, photo
 count, anonymous install id (random, not tied to a person), checksum. Size target about 100-150
 bytes. If the URL does not fit the watermark capacity, the watermark carries a hash of it and the
 strip carries the full URL; the builder measures capacity and decides.
