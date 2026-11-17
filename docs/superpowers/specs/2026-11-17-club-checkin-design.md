@@ -58,8 +58,12 @@ Image embedding: the user chose the **recompression-proof** route over lossless-
   across its photos (not the sum; avoids double-counting people in overlapping shots).
 - Detector: a TFLite person detector (a small EfficientDet-Lite or YOLO-class model). It counts
   people including the backs of heads and partial bodies.
-- Organiser enters a hand count. Flag = hand and camera differ by more than a threshold
-  (starting point: >25% and >3 people; tunable server-side).
+- Organiser enters a hand count as a range (or a single number, stored as a range of one).
+- Camera count is also a range: tiled detection run at three confidence levels (low, middle,
+  high), with the middle as the point estimate. The levels are fixed in advance, never tuned per
+  photo. The spike showed counts swing widely with the threshold.
+- Flag = the two ranges do not overlap, by more than 3 people (tunable server-side). The
+  threshold and the camera range rule need calibrating on many hand-counted photos.
 
 ### Blurring (my call)
 - For every detected person box, blur or pixelate the top third (head region); also run face
@@ -76,7 +80,7 @@ Image embedding: the user chose the **recompression-proof** route over lossless-
 
 ### The shareable image
 Fixed export size so chat apps do not rescale it (target long edge 1280px, JPEG-safe).
-1. **Visible overlay:** club title, local date and time, coarse area, hand count, camera count, a
+1. **Visible overlay:** club title, local date and time, coarse area, hand range, camera range, a
    flag marker if the counts disagree, in a clear pixel style. Readable even if everything else fails.
 2. **Film-soundtrack data strip:** a vertical strip along one edge made of large coarse blocks
    (chunky, high-contrast, in the dark pixel style), carrying the full payload with strong
@@ -106,7 +110,7 @@ Fixed export size so chat apps do not rescale it (target long edge 1280px, JPEG-
 
 ### Payload (compact, versioned)
 version, club URL (compressed), event id (random), timestamp (UTC) and timezone offset, coarse
-location cell (two small integers, or empty), hand count, camera count, photo
+location cell (two small integers, or empty), hand range, camera range and point estimate, photo
 count, anonymous install id (random, not tied to a person), checksum. Size target about 100-150
 bytes. If the URL does not fit the watermark capacity, the watermark carries a hash of it and the
 strip carries the full URL; the builder measures capacity and decides.

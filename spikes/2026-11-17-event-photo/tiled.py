@@ -21,9 +21,11 @@ def run(conf, tiles, imgsz=1280, iou=0.5):
     b=torch.tensor(boxes,dtype=torch.float32); s=torch.tensor(scores)
     keep=torchvision.ops.nms(b,s,iou)
     return b[keep].numpy(), s[keep].numpy()
-for conf in (0.15,0.25,0.35):
-    for tiles in (0,2,3):
-        b,s=run(conf,tiles)
-        print('conf',conf,'tiles',tiles,'count',len(b))
-b,s=run(0.25,3)
-np.save('/tmp/spike/out/boxes.npy',np.c_[b,s])
+if __name__=='__main__':
+    import json
+    res={}
+    for conf in (0.35,0.25,0.15):
+        b,s=run(conf,3); res[conf]=len(b); print('conf',conf,'tiles 3 count',len(b))
+        if conf==0.25: np.save('/tmp/spike/out/boxes.npy',np.c_[b,s])
+    json.dump(dict(low=res[0.35],point=res[0.25],high=res[0.15]),open('/tmp/spike/out/range.json','w'))
+    print('range',res[0.35],'to',res[0.15],'point',res[0.25])

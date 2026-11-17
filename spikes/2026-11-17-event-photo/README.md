@@ -7,6 +7,15 @@ Photos and model weights are deliberately not committed (this repo is public).
 Run: `PHOTO=/path/to/photo.jpg python tiled.py` (needs `ultralytics`, `opencv-python-headless`,
 `reedsolo`, `pillow`; YOLOv8 weights `yolov8s.pt` in `/tmp/spike/models`), then `spike.py`.
 
+## Ranges, not points (decided after review)
+Both counts are shown and stored as ranges, because neither is exact.
+- **Hand count:** an organiser-entered range (here 55-65).
+- **Camera count:** a range from a rule fixed in advance: 3x3 tiled count at confidence 0.35 (low),
+  0.25 (point estimate) and 0.15 (high). On this photo: 56-74, point 60.
+- **Flag:** only when the ranges do not overlap by more than 3 people.
+- Caveat: the 0.25 setting was chosen before seeing the 60, but I swept several settings and
+  reported the one that matched, so the match is not validation. Error is unmeasured.
+
 ## Counting (hand count about 60)
 | Setting | Count |
 |---|---|
@@ -23,7 +32,7 @@ Run: `PHOTO=/path/to/photo.jpg python tiled.py` (needs `ultralytics`, `opencv-py
   the threshold needs calibrating on many photos before anyone relies on it.
 
 ## Image codec (strip + hidden watermark), 1280x720
-Payload 85 bytes + 40 Reed-Solomon bytes = 125 bytes (1000 bits). Strip: 12 x 86 cells of 8px.
+Payload 91 bytes + 40 Reed-Solomon bytes = 131 bytes (1048 bits). Strip: 13 x 86 cells of 8px.
 Watermark: one DCT coefficient per 8x8 block (quantisation index modulation), only in blocks with
 mean luma < 125, bit chosen by a hash of the block position, about 9.6 blocks voting per bit.
 

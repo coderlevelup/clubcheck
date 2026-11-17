@@ -4,7 +4,7 @@ from PIL import Image, ImageDraw, ImageFont
 from reedsolo import RSCodec
 SRC=os.environ['PHOTO']
 OUT='/tmp/spike/out'; W,H=1280,720
-CELL=8; COLS=12; STRIP_W=CELL*COLS; NSYM=40
+CELL=8; COLS=13; STRIP_W=CELL*COLS; NSYM=40
 DELTA=80.0; COEF=(1,1); T_DARK=125
 URL=b'rsvp.withgoogle.com/events/android-developer-day-capetown'
 
@@ -49,13 +49,14 @@ def crc16(b):
         for _ in range(8): c=((c<<1)^0x1021)&0xFFFF if c&0x8000 else (c<<1)&0xFFFF
     return c
 def make_payload(ts,tz15,lat,lon,hand,cam,photos):
-    body=struct.pack('>B6sIbhhHHB4sB',1,os.urandom(6),ts,tz15,lat,lon,hand,cam,photos,os.urandom(4),len(URL))+URL
+    (hlo,hhi),(clo,cpt,chi)=hand,cam
+    body=struct.pack('>B6sIbhhHHHHHB4sB',1,os.urandom(6),ts,tz15,lat,lon,hlo,hhi,clo,chi,cpt,photos,os.urandom(4),len(URL))+URL
     return body+struct.pack('>H',crc16(body))
 def parse_payload(p):
     body,c=p[:-2],struct.unpack('>H',p[-2:])[0]
     if crc16(body)!=c: return None
-    v,ev,ts,tz,lat,lon,hand,cam,ph,inst,ul=struct.unpack('>B6sIbhhHHB4sB',body[:26])
-    return dict(v=v,event=ev.hex(),ts=ts,tz15=tz,lat=lat/100.0,lon=lon/100.0,hand=hand,cam=cam,photos=ph,url=body[26:26+ul].decode())
+    v,ev,ts,tz,lat,lon,hlo,hhi,clo,chi,cpt,ph,inst,ul=struct.unpack('>B6sIbhhHHHHHB4sB',body[:32])
+    return dict(v=v,event=ev.hex(),ts=ts,tz15=tz,lat=lat/100.0,lon=lon/100.0,hand=[hlo,hhi],camera=[clo,chi],camera_point=cpt,photos=ph,url=body[32:32+ul].decode())
 rsc=RSCodec(NSYM)
 def to_bits(b): return np.unpackbits(np.frombuffer(bytes(b),np.uint8))
 def to_bytes(bits): return np.packbits(bits.astype(np.uint8)).tobytes()
@@ -129,24 +130,24 @@ if __name__=='__main__':
     pil=Image.fromarray(cv2.cvtColor(small,cv2.COLOR_BGR2RGB)); d=ImageDraw.Draw(pil,'RGBA')
     f1=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf',26)
     f2=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf',19)
-    hand=60; ts=int(time.time()); tz15=8   # SAST = UTC+2
+    rg=json.load(open(f'{OUT}/range.json')); cam=(rg['low'],rg['point'],rg['high']); hand=(55,65); ts=int(time.time()); tz15=8   # SAST = UTC+2
     lat,lon=-33.90,18.40
-    flag = abs(hand-count)/max(hand,count)>.25 and abs(hand-count)>3
+    gap=max(cam[0]-hand[1],hand[0]-cam[2],0); flag = gap>3
     d.rectangle([STRIP_W+10,10,W-10,112],fill=(0,0,0,150))
     d.text((STRIP_W+22,16),'ANDROID DEVELOPER DAY CAPE TOWN',font=f1,fill=(233,241,236))
     d.text((STRIP_W+22,52),'17 NOV 2026 10:42 SAST   33.90S 18.40E',font=f2,fill=(159,217,191))
-    d.text((STRIP_W+22,80),f'HAND {hand}  CAMERA {count}  {"CHECK COUNTS" if flag else "COUNTS AGREE"}',font=f2,fill=(240,160,102) if flag else (159,217,191))
+    d.text((STRIP_W+22,80),f'HAND {hand[0]}-{hand[1]}  CAMERA {cam[0]}-{cam[2]}  {"CHECK COUNTS" if flag else "RANGES OVERLAP"}',font=f2,fill=(240,160,102) if flag else (159,217,191))
     d.rectangle([STRIP_W,H-40,W,H],fill=(0,0,0,185))
     d.text((STRIP_W+14,H-32),'github.com/coderlevelup/clubcheck',font=f2,fill=(233,241,236))
     comp=cv2.cvtColor(np.array(pil),cv2.COLOR_RGB2BGR)
-    payload=make_payload(ts,tz15,int(lat*100),int(lon*100),hand,count,1)
+    payload=make_payload(ts,tz15,round(lat*100),round(lon*100),hand,cam,1)
     coded=bytes(rsc.encode(payload)); print('payload',len(payload),'coded',len(coded),'bits',len(coded)*8)
     nb=draw_strip(comp,coded)
     final,used,tot=embed_wm(comp,coded)
     print('watermark blocks used',used,'of',tot,'=> per bit',used/(len(coded)*8))
     p=cv2.PSNR(comp,final); print('watermark PSNR vs unmarked',round(p,1),'dB')
     cv2.imwrite(f'{OUT}/shared.png',final)
-    json.dump(dict(count=count,hand=hand,flag=bool(flag),payload=parse_payload(payload),coded_len=len(coded),wm_blocks=used,blocks_total=tot),open(f'{OUT}/meta.json','w'),indent=1)
+    json.dump(dict(camera=cam,hand=hand,flag=bool(flag),payload=parse_payload(payload),coded_len=len(coded),wm_blocks=used,blocks_total=tot),open(f'{OUT}/meta.json','w'),indent=1)
 
     # ---------- stress tests ----------
     n=len(coded)
