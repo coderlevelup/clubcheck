@@ -45,8 +45,17 @@ mean luma < 125, bit chosen by a hash of the block position, about 9.6 blocks vo
 
 Watermark visibility: PSNR 40 dB against the unmarked image.
 
+## Real WhatsApp round trip (2026-11-17)
+The exported image was sent through WhatsApp and downloaded again. It came back as a 1280x720
+JPEG, 129 KB, 34.4 dB PSNR from the original export (a real recompression, not the PNG). Both the
+data strip and the hidden watermark decoded to the full payload (ranges, URL, time, location),
+with zero watermark bit errors after correction and strip cells at 1 to 254 on a 0-255 scale
+against a threshold of 127, so there was wide margin. One phone, one app, one image, and the
+export size was below WhatsApp's resize limit, so this does not yet cover resizing, other apps,
+or iOS.
+
 ## Caveats (do not skip)
-- One photo. JPEG was simulated with OpenCV, not by WhatsApp itself. Real phone test still needed.
+- One photo. One real WhatsApp round trip passed (above); other apps and iOS are untested.
 - The decoder assumes the known export size and aspect. There is no geometric sync, so rotation,
   cropping or a different aspect ratio are untested and would likely fail.
 - Blurring is two passes of Gaussian blur on soft ellipses: (1) a head estimated from the top of
