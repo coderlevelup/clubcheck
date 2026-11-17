@@ -26,7 +26,7 @@ class WatermarkTest {
 
     @Test fun readsAfterStripRemoved() {
         val img = marked()
-        for (y in 0 until img.height) for (x in 0 until StripCodec.WIDTH_PX) img.argb[y * img.width + x] = 0xFF000000.toInt()
+        for (y in 720 - StripCodec.reservedPx(coded.size) until 720) for (x in 0 until 1280) img.argb[y * 1280 + x] = 0xFF000000.toInt()
         val back = jpegRoundTrip(img, 75)
         assertArrayEquals(payload, ReedSolomon.decode(Watermark.read(back, coded.size)))
     }

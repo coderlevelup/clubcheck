@@ -74,6 +74,9 @@ against a threshold of 127, so there was wide margin. One phone, one app, one im
 export size was below WhatsApp's resize limit, so this does not yet cover resizing, other apps,
 or iOS.
 
+Note: the images in `images/` use the spike's earlier side-strip layout. The app no longer reads that strip; the
+hidden watermark is unchanged, so the Kotlin decoder still reads them through it.
+
 ## Caveats (do not skip)
 - One photo. One real WhatsApp round trip passed (above); other apps and iOS are untested.
 - The decoder assumes the known export size and aspect. There is no geometric sync, so rotation,

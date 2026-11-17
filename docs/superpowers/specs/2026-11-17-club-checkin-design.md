@@ -160,12 +160,16 @@ payload byte layout; flag thresholds; dashboard layout.
 - The hidden scheme is not secure against deliberate removal.
 
 ## Layout update (after the first Android build)
-- The data strip is its own column on the left of the 1280x720 export; the photo is scaled to fit in the area
-  beside it, so the strip never covers the picture. The strip is 104 px for a normal link and widens (in 8 px
-  columns, up to 192 px) when the link is longer.
-- Club links may be up to 120 bytes (was 65). The extra bytes cost strip width, not text size.
+- Down the 1280x720 export: the photo (fitted into the space that is left, never covered), then a 40 px line with
+  the repo URL, then the data strip directly below it. The repo line labels the strip, and the strip is a contained
+  box: a black quiet zone of 16 px at each side and 8 px below, with alternating finder columns at both ends.
+- The strip's height depends on the payload: 7 rows (56 px) for a normal link, up to 12 rows. A longer link adds
+  rows, never width.
+- Club links may be up to 120 bytes (was 65).
 - The header shows the club title and, on its own line, the club link in readable form (skipped when the title
   already is the link). Long lines, such as a long link, word-wrap at natural points (spaces, then after `/`,
-  `-` and `.`) and the header panel grows to fit.
-- Decoding is unchanged for older images: the decoder tries each possible payload length, which also fixes the
-  strip width.
+  `-` and `.`) and the header panel grows to fit over the top of the photo.
+- The hidden watermark no longer needs to know where the strip is: strip cells are pure black or white, so their
+  blocks are never dark enough in the middle to be used.
+- No legacy support: images made with the earlier side strip are not read by the strip decoder (their hidden
+  watermark, which is unchanged, still is).

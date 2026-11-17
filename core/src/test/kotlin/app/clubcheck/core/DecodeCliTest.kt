@@ -11,7 +11,7 @@ class DecodeCliTest {
 
     private fun load(f: File) = ImageIO.read(f).toRgb()
 
-    @Test fun decodesSpikeWhatsAppImage() {
+    @Test fun decodesSpikeWhatsAppImageThroughItsWatermark() {
         val d = decodeExport(load(whatsapp))!!
         assertEquals("rsvp.withgoogle.com/events/android-developer-day-capetown", d.payload.url)
         assertEquals(Range(56, 74), d.payload.camera)
@@ -21,22 +21,15 @@ class DecodeCliTest {
         assertEquals(8, d.payload.tz15)
     }
 
-    @Test fun bothLayersAgreeOnTheRealWhatsAppImage() {
+    @Test fun theRealWhatsAppImageIsReadFromTheWatermarkAlone() {
+        // made with the earlier side-strip layout, which is no longer read; only the hidden layer carries over
         val d = decodeExport(load(whatsapp))!!
-        assertTrue(d.viaStrip, "strip decoded"); assertTrue(d.viaWatermark, "watermark decoded"); assertTrue(d.layersAgree)
+        assertFalse(d.viaStrip); assertTrue(d.viaWatermark)
     }
 
     @Test fun decodesTheLosslessSpikeExport() {
         val d = decodeExport(load(export))!!
         assertEquals("rsvp.withgoogle.com/events/android-developer-day-capetown", d.payload.url)
-    }
-
-    @Test fun watermarkAloneIsEnoughWhenTheStripIsCoveredUp() {
-        val img = load(whatsapp)
-        for (y in 0 until img.height) for (x in 0 until StripCodec.WIDTH_PX) img.argb[y * img.width + x] = 0xFF000000.toInt()
-        val d = decodeExport(img)!!
-        assertFalse(d.viaStrip); assertTrue(d.viaWatermark)
-        assertEquals(Range(56, 74), d.payload.camera)
     }
 
     @Test fun decodesOurOwnExportsOfAnyUrlLength() {
@@ -55,5 +48,11 @@ class DecodeCliTest {
         val text = out.toString()
         assertTrue(text.contains("\"url\": \"rsvp.withgoogle.com/events/android-developer-day-capetown\""), text)
         assertTrue(text.contains("\"camera\": [56, 74]"), text)
+    }
+
+    @Test fun newExportsReadTheBottomStripAndAgreeWithTheWatermark() {
+        val p = Payload(byteArrayOf(1, 2, 3, 4, 5, 6), 1700000000L, 8, CoarseCell.NONE, Range(1, 2), Range(1, 3), 2, 1, byteArrayOf(1, 2, 3, 4), "club.example/chess")
+        val d = decodeExport(jpegRoundTrip(composeExport(testPhoto(), p, { _, _, _ -> }, "t").image, 75))!!
+        assertTrue(d.viaStrip && d.viaWatermark && d.layersAgree)
     }
 }

@@ -8,6 +8,7 @@ import java.util.Locale
 const val EXPORT_WIDTH = 1280
 const val EXPORT_HEIGHT = 720
 const val REPO_FOOTER = "github.com/coderlevelup/clubcheck"
+const val FOOTER_LINE_PX = 40
 
 private val dateFormat = DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm", Locale.ENGLISH)
 
@@ -20,7 +21,10 @@ private fun offsetText(zone: ZoneOffset): String {
     return "UTC$sign$h" + if (m != 0) ":%02d".format(m) else ""
 }
 
-/** Draws the header text onto the export image; the Int is the strip's width in pixels, so text stays clear of it. */
+/**
+ * Draws the header and the repo line onto the export image. The Int is the height reserved at the bottom for the
+ * contained data strip (band plus margin); the repo line belongs directly above it, [FOOTER_LINE_PX] tall.
+ */
 typealias OverlayDraw = (RgbImage, List<String>, Int) -> Unit
 
 /**
@@ -39,18 +43,18 @@ fun overlayLines(p: Payload, title: String, zone: ZoneOffset): List<String> {
 data class ExportResult(val image: RgbImage, val report: EmbedReport)
 
 /**
- * Builds the shareable image from an already blurred photo of any size. The data strip gets its own column on
- * the left (as wide as the payload needs) and the photo is fitted into the area beside it, so the strip never
- * covers the picture. Then the overlay is drawn by [drawOverlay], and the hidden watermark goes in last.
+ * Builds the shareable image from an already blurred photo of any size. Down the page: the photo (fitted into the
+ * space that is left), a line for the repo URL, and below it the contained data strip that the repo URL labels, so
+ * the strip never covers the picture. The header is drawn by [drawOverlay]; the hidden watermark goes in last.
  * The input is not modified.
  */
 fun composeExport(blurred: RgbImage, p: Payload, drawOverlay: OverlayDraw, title: String): ExportResult {
     val coded = ReedSolomon.encode(p.encode())
-    val stripWidth = StripCodec.widthPx(coded.size, EXPORT_HEIGHT)
-    val photo = fitInto(blurred, EXPORT_WIDTH - stripWidth, EXPORT_HEIGHT)
+    val reserved = StripCodec.reservedPx(coded.size, EXPORT_WIDTH)
+    val photo = fitInto(blurred, EXPORT_WIDTH, EXPORT_HEIGHT - FOOTER_LINE_PX - reserved)
     val img = RgbImage(EXPORT_WIDTH, EXPORT_HEIGHT, IntArray(EXPORT_WIDTH * EXPORT_HEIGHT) { 0xFF000000.toInt() })
-    for (y in 0 until EXPORT_HEIGHT) System.arraycopy(photo.argb, y * photo.width, img.argb, y * EXPORT_WIDTH + stripWidth, photo.width)
-    drawOverlay(img, overlayLines(p, title, ZoneOffset.ofTotalSeconds(p.tz15 * 900)), stripWidth)
+    System.arraycopy(photo.argb, 0, img.argb, 0, photo.argb.size)
+    drawOverlay(img, overlayLines(p, title, ZoneOffset.ofTotalSeconds(p.tz15 * 900)), reserved)
     StripCodec.draw(img, coded)
     return ExportResult(img, Watermark.embed(img, coded))
 }

@@ -10,10 +10,10 @@ import javax.imageio.ImageIO
 
 /** Dev tool, skipped unless PREVIEW_OUT (a folder) and PREVIEW_PHOTO (an already blurred photo) are set. */
 class ExportPreviewTest {
-    private fun awtOverlay(img: RgbImage, lines: List<String>, stripWidth: Int) {
+    private fun awtOverlay(img: RgbImage, lines: List<String>, reservedBottom: Int) {
         val b = img.toBuffered(); val g = b.createGraphics()
         g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON)
-        val left = stripWidth + 10; val textLeft = left + 12; val textWidth = img.width - 10 - textLeft - 12
+        val left = 10; val textLeft = left + 12; val textWidth = img.width - 10 - textLeft - 12
         class Row(val text: String, val font: Font, val color: Color, val y: Int)
         val rows = ArrayList<Row>(); var y = 18
         lines.forEachIndexed { i, line ->
@@ -24,8 +24,9 @@ class ExportPreviewTest {
         }
         g.color = Color(0, 0, 0, 160); g.fillRect(left, 10, img.width - 10 - left, y + 8 - 10)
         rows.forEach { g.font = it.font; g.color = it.color; g.drawString(it.text, textLeft, it.y) }
-        g.color = Color(0, 0, 0, 185); g.fillRect(stripWidth, EXPORT_HEIGHT - 40, img.width - stripWidth, 40)
-        g.font = Font(Font.MONOSPACED, Font.PLAIN, 19); g.color = Color(233, 241, 236); g.drawString(REPO_FOOTER, left + 4, EXPORT_HEIGHT - 14)
+        val footerTop = EXPORT_HEIGHT - reservedBottom - FOOTER_LINE_PX
+        g.color = Color.BLACK; g.fillRect(0, footerTop, img.width, FOOTER_LINE_PX)
+        g.font = Font(Font.MONOSPACED, Font.PLAIN, 19); g.color = Color(233, 241, 236); g.drawString(REPO_FOOTER, 16, footerTop + FOOTER_LINE_PX - 12)
         g.dispose()
         b.getRGB(0, 0, img.width, img.height, img.argb, 0, img.width)
     }

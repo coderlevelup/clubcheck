@@ -70,21 +70,21 @@ class ExportTest {
         assertEquals(1280, r.image.width); assertEquals(720, r.image.height)
     }
 
-    @Test fun theStripSitsBesideThePhotoNotOnIt() {
+    @Test fun theStripSitsBelowThePhotoAndTheRepoLineNotOnThePhoto() {
         val white = RgbImage(1280, 720, IntArray(1280 * 720) { -1 })           // a bright photo: nothing dark to watermark
         val img = composeExport(white, payload(), { _, _, _ -> }, "x").image
-        val strip = StripCodec.widthPx(ReedSolomon.encode(payload().encode()).size, 720)
-        assertEquals(104, strip)
-        for (x in 0 until strip) assertTrue((img.argb[360 * 1280 + x] and 0xFFFFFF).let { it == 0 || it == 0xFFFFFF }, "strip column $x is pure black or white")
-        assertTrue((img.argb[360 * 1280 + strip + 100] and 0xFF) > 225, "photo starts right after the strip")
-        assertTrue((img.argb[5 * 1280 + strip + 100] and 0xFF) < 30, "the photo is fitted (bars above), not stretched under the strip")
+        val stripTop = 720 - 64
+        for (x in 16 until 1264) assertTrue((img.argb[(stripTop + 3) * 1280 + x] and 0xFFFFFF).let { it == 0 || it == 0xFFFFFF }, "strip pixel $x")
+        assertTrue((img.argb[300 * 1280 + 640] and 0xFF) > 225, "the photo is above the footer")
+        assertTrue((img.argb[300 * 1280 + 10] and 0xFF) < 30, "fitted into 1280x616, so bars at the sides, not stretched")
+        assertTrue((img.argb[(stripTop - 20) * 1280 + 640] and 0xFF) < 30, "the footer line between the photo and the strip is left for the repo URL")
     }
 
-    @Test fun overlayCallbackLearnsTheStripWidthSoTextStaysClearOfIt() {
-        var narrow = -1; var wide = -1
-        composeExport(testPhoto(), payload(), { _, _, w -> narrow = w }, "x")
-        composeExport(testPhoto(), payload().copy(url = "club.example/" + "a".repeat(107)), { _, _, w -> wide = w }, "x")
-        assertEquals(104, narrow); assertEquals(152, wide)
+    @Test fun overlayCallbackLearnsTheStripHeightSoTheFooterSitsAboveIt() {
+        var short = -1; var long = -1
+        composeExport(testPhoto(), payload(), { _, _, h -> short = h }, "x")
+        composeExport(testPhoto(), payload().copy(url = "club.example/" + "a".repeat(107)), { _, _, h -> long = h }, "x")
+        assertEquals(64, short); assertEquals(96, long)
     }
 
     @Test fun aLongLinkExportDecodesBothLayers() {

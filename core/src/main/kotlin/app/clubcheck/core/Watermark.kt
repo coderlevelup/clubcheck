@@ -9,7 +9,7 @@ data class EmbedReport(val blocksUsed: Int, val blocksTotal: Int, val votesPerBi
 
 /**
  * Hidden copy of the payload: quantisation index modulation on one low-frequency DCT coefficient of the
- * luma of dark 8x8 blocks, outside the strip. Each block votes for a bit chosen by a hash of its position,
+ * luma of dark 8x8 blocks. The strip's pure black or white cells are never dark enough in the middle, so they are never used. Each block votes for a bit chosen by a hash of its position,
  * so a few blocks changing darkness after JPEG does not shift the others.
  */
 object Watermark {
@@ -29,9 +29,8 @@ object Watermark {
         val nbits = coded.size * 8
         val luma = img.luma()
         val bw = img.width / 8; val bh = img.height / 8
-        val firstBx = StripCodec.columnsFor(coded.size, img.height)     // one block column per strip column
         var used = 0
-        for (by in 0 until bh) for (bx in firstBx until bw) {
+        for (by in 0 until bh) for (bx in 0 until bw) {
             val blk = block(luma, img.width, bx, by)
             if (blk.average().let { it >= DARK_BELOW || it < TOO_BLACK }) continue
             val bit = (coded[bitIndex(bx, by, nbits) / 8].toInt() shr (7 - bitIndex(bx, by, nbits) % 8)) and 1
@@ -48,7 +47,7 @@ object Watermark {
             }
             used++
         }
-        return EmbedReport(used, (bw - firstBx) * bh, used.toDouble() / nbits)
+        return EmbedReport(used, bw * bh, used.toDouble() / nbits)
     }
 
     fun read(img: RgbImage, codedLength: Int): ByteArray {
@@ -56,8 +55,7 @@ object Watermark {
         val luma = img.luma()
         val bw = img.width / 8; val bh = img.height / 8
         val vote = DoubleArray(nbits)
-        val firstBx = StripCodec.columnsFor(codedLength, img.height)
-        for (by in 0 until bh) for (bx in firstBx until bw) {
+        for (by in 0 until bh) for (bx in 0 until bw) {
             val blk = block(luma, img.width, bx, by)
             if (blk.average().let { it >= DARK_BELOW || it < TOO_BLACK }) continue
             val c = Dct.forward(blk)[COEF]

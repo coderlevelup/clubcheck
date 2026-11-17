@@ -99,8 +99,8 @@ class CheckInSessionTest {
         assertEquals(1, s.retainedImages); assertEquals(3, s.photoCount); assertEquals(9, s.camera().point)
     }
 
-    // The export fits the photo into the area right of the 104px strip: 1176 wide, 29px of bar above.
-    private val sx = 1176.0 / 1280; private val ox = 104.0; private val oy = 29.0
+    // The export fits the photo into the 1280 x 616 area above the repo line (40) and the contained strip (56 + 8 margin): 92px side bars.
+    private val sx = 616.0 / 720; private val ox = 92.0; private val oy = 0.0
     private fun roughnessAt(img: RgbImage, cx: Double, cy: Double, rx: Double, ry: Double): Double {
         val l = img.luma(); var sum = 0.0; var n = 0
         for (y in (oy + (cy - ry / 2) * sx).toInt() until (oy + (cy + ry / 2) * sx).toInt()) for (x in (ox + (cx - rx / 2) * sx).toInt() until (ox + (cx + rx / 2) * sx).toInt()) { sum += Math.abs(l[y * 1280 + x] - l[y * 1280 + x + 1]); n++ }
