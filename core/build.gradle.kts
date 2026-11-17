@@ -3,8 +3,10 @@ java { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaV
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
 dependencies {
     implementation(libs.zxing.core)
+    implementation(libs.coroutines.core)
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.json)
+    testImplementation(libs.coroutines.core)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 tasks.test {

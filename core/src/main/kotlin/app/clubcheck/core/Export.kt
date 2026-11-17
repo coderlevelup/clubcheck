@@ -44,3 +44,15 @@ fun composeExport(blurred: RgbImage, p: Payload, drawOverlay: (RgbImage, List<St
     val report = Watermark.embed(img, coded)
     return ExportResult(img, report)
 }
+
+/** Turns pixels into JPEG bytes. On Android this is `Bitmap.compress`; both write no metadata. */
+fun interface JpegEncoder { fun encode(img: RgbImage, quality: Int): ByteArray }
+
+/**
+ * Encodes the export. The bytes come only from the pixels of [export]: nothing from the camera file
+ * (EXIF, GPS, orientation, thumbnails, XMP) is ever copied across.
+ */
+fun encodeExportJpeg(export: RgbImage, encoder: JpegEncoder, quality: Int = 92): ByteArray {
+    require(export.width == EXPORT_WIDTH && export.height == EXPORT_HEIGHT) { "export image must be ${EXPORT_WIDTH}x$EXPORT_HEIGHT" }
+    return encoder.encode(export, quality)
+}
