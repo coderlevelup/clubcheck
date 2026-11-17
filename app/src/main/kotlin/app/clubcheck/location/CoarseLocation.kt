@@ -13,6 +13,8 @@ import app.clubcheck.core.coarseCellFrom
  * Approximate location from the framework's last known fix (no Play services needed). The exact fix is
  * snapped to a coarse cell immediately and discarded; denied, off or unavailable all give [CoarseCell.NONE].
  */
+private const val MAX_FIX_AGE_MS = 12 * 3_600_000L
+
 class CoarseLocation(private val context: Context) : LocationProvider {
     override suspend fun current(enabled: Boolean): CoarseCell {
         val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
@@ -20,6 +22,7 @@ class CoarseLocation(private val context: Context) : LocationProvider {
             val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
             @Suppress("MissingPermission")
             val fix = listOf(LocationManager.NETWORK_PROVIDER, LocationManager.PASSIVE_PROVIDER).firstNotNullOfOrNull { lm.getLastKnownLocation(it) }
+                ?.takeIf { System.currentTimeMillis() - it.time < MAX_FIX_AGE_MS }   // a days-old fix may be another town
             fix?.let { it.latitude to it.longitude }
         }
     }

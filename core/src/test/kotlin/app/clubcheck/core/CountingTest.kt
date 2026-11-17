@@ -58,6 +58,14 @@ class CountingTest {
         assertEquals(4, result.boxesAtPoint.size)
     }
 
+    @Test fun blurBoxesKeepLowConfidenceAndContainedDetections() {
+        // 0.9 adult; 0.3 child standing inside the adult's box (merged away for COUNTING); 0.2 person under the 0.25 point
+        val adult = Box(100f, 100f, 300f, 600f, 0.9f); val child = Box(150f, 300f, 230f, 600f, 0.3f); val faint = Box(700f, 100f, 800f, 400f, 0.2f)
+        val r = countPeople(blank(), Fake(listOf(adult, child, faint)))
+        assertEquals(1, r.point)                                // adult only at 0.25 (child merged, faint below)
+        assertEquals(3, r.blurBoxes.size)                       // but all three heads must be blurred
+    }
+
     @Test fun detectorRunsOncePerRegion() {
         val fake = Fake(emptyList())
         countPeople(blank(), fake)

@@ -54,4 +54,19 @@ class WatermarkTest {
         val psnr = 10 * log10(255.0 * 255.0 / (se / (img.argb.size * 3)))
         assertTrue(psnr >= 38.0, "PSNR was $psnr dB")
     }
+
+    @Test fun blackBarsDoNotCountAsUsableBlocks() {
+        val black = RgbImage(1280, 720, IntArray(1280 * 720) { 0xFF000000.toInt() })
+        val r = Watermark.embed(black, coded)
+        assertEquals(0, r.blocksUsed); assertTrue(r.weak)
+    }
+
+    @Test fun neverClaimsAStrongWatermarkThatFailsAfterJpeg() {
+        // a bright 4:3 photo letterboxed onto 1280x720 (what a default camera produces)
+        val bright = fitToExport(testPhoto(1200, 900, seed = 9, brightness = 120))
+        val report = Watermark.embed(bright, coded)
+        val back = jpegRoundTrip(bright, 75)
+        val decodes = ReedSolomon.decode(Watermark.read(back, coded.size)) != null
+        assertTrue(report.weak || decodes, "not weak (${report.votesPerBit} votes/bit) yet it does not decode")
+    }
 }

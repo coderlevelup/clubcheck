@@ -11,5 +11,5 @@ class PageFetcher(private val client: OkHttpClient = OkHttpClient.Builder().call
         client.newCall(Request.Builder().url("https://$normalisedUrl").build()).execute().use { r ->
             if (!r.isSuccessful) null to null else parsePageMeta(r.body?.source()?.let { s -> s.request(256 * 1024); s.buffer.clone().readUtf8() } ?: "")
         }
-    } catch (e: java.io.IOException) { null to null }
+    } catch (e: Exception) { null to null }   // offline, malformed address, anything: no title, never a crash
 }

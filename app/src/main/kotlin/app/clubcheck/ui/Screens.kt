@@ -114,7 +114,15 @@ private fun takePhoto(context: Context, capture: ImageCapture, onPhoto: (ByteArr
 fun ReviewScreen(ui: CheckInUi, vm: CheckInViewModel, onBack: () -> Unit, onReady: () -> Unit) {
     val context = LocalContext.current
     val askLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> vm.setLocationEnabled(ok) }
-    LaunchedEffect(ui.ready) { if (ui.ready != null) onReady() }
+    // First time here: use the area if it is already allowed, otherwise ask. The switch shows the real state.
+    LaunchedEffect(Unit) {
+        if (!ui.locationAsked) {
+            vm.locationAsked()
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) vm.setLocationEnabled(true)
+            else askLocation.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+        }
+    }
+    LaunchedEffect(ui.showShare) { if (ui.showShare) { vm.shareShown(); onReady() } }
     Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Check-in details", style = MaterialTheme.typography.headlineSmall)
         Text("Camera count: ${ui.cameraText} from ${ui.photos} photo(s)")

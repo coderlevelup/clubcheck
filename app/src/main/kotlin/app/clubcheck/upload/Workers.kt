@@ -16,16 +16,27 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
 import java.util.concurrent.TimeUnit
 
-fun appDb(context: Context): AppDb = Room.databaseBuilder(context.applicationContext, AppDb::class.java, "clubcheck.db").build()
+@Volatile private var database: AppDb? = null
+
+/** One shared database for the whole process (Room instances are expensive and must not be duplicated). */
+fun appDb(context: Context): AppDb = database ?: synchronized(AppDb::class.java) {
+    database ?: Room.databaseBuilder(context.applicationContext, AppDb::class.java, "clubcheck.db").build().also { database = it }
+}
 
 /** Posts to the ClubCheck service. The base URL is configured at build time; the service is built in a later plan. */
 class HttpCloudApi(private val baseUrl: String, private val client: OkHttpClient = OkHttpClient.Builder().callTimeout(30, TimeUnit.SECONDS).build()) : CloudApi {
-    override suspend fun postCheckIn(payload: ByteArray, image: ByteArray): Boolean = try {
+    override suspend fun postCheckIn(payload: ByteArray, image: ByteArray): UploadResult = try {
         val body = MultipartBody.Builder().setType(MultipartBody.FORM)
             .addFormDataPart("payload", "payload.bin", payload.toRequestBody("application/octet-stream".toMediaType()))
             .addFormDataPart("image", "image.jpg", image.toRequestBody("image/jpeg".toMediaType())).build()
-        client.newCall(Request.Builder().url("$baseUrl/checkin").post(body).build()).execute().use { it.isSuccessful }
-    } catch (e: java.io.IOException) { false }
+        client.newCall(Request.Builder().url("$baseUrl/checkin").post(body).build()).execute().use {
+            when {
+                it.isSuccessful -> UploadResult.OK
+                it.code in 400..499 && it.code != 408 && it.code != 429 -> UploadResult.REJECTED
+                else -> UploadResult.RETRY
+            }
+        }
+    } catch (e: java.io.IOException) { UploadResult.RETRY } catch (e: IllegalArgumentException) { UploadResult.REJECTED }
 }
 
 class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
@@ -34,6 +45,7 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         val store = object : CheckInStore {
             override suspend fun queued() = dao.queued().map { QueuedCheckIn(it.id, it.eventId, it.payloadHex, it.imagePath) }
             override suspend fun markSent(id: Long) = dao.markSent(id)
+            override suspend fun markFailed(id: Long) = dao.markFailed(id)
         }
         val base = inputData.getString("baseUrl") ?: return Result.failure()
         UploadQueue(store, HttpCloudApi(base)) { File(it).readBytes() }.drain()

@@ -28,6 +28,7 @@ interface CheckInDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insert(row: CheckInEntity): Long
     @Query("SELECT * FROM check_ins WHERE state = 'QUEUED' ORDER BY createdAtMs") suspend fun queued(): List<CheckInEntity>
     @Query("UPDATE check_ins SET state = 'SENT' WHERE id = :id") suspend fun markSent(id: Long)
+    @Query("UPDATE check_ins SET state = 'FAILED' WHERE id = :id") suspend fun markFailed(id: Long)
     @Query("SELECT * FROM check_ins ORDER BY createdAtMs DESC") suspend fun all(): List<CheckInEntity>
 }
 

@@ -7,7 +7,12 @@ fun interface PersonDetector {
     fun detect(img: RgbImage, minConfidence: Float): List<Box>
 }
 
-data class CameraCount(val range: Range, val point: Int, val boxesAtPoint: List<Box>)
+/**
+ * [boxesAtPoint] are the people counted at the middle confidence. [blurBoxes] are every detection at the
+ * lowest confidence, merged only by IoU: a faint person, or a child inside an adult's box, is not counted
+ * twice but must still have the head blurred.
+ */
+data class CameraCount(val range: Range, val point: Int, val boxesAtPoint: List<Box>, val blurBoxes: List<Box> = boxesAtPoint)
 
 private fun area(b: Box) = (b.x2 - b.x1) * (b.y2 - b.y1)
 
@@ -52,7 +57,7 @@ fun countPeople(img: RgbImage, detector: PersonDetector): CameraCount {
     fun at(level: Float) = nms(all.filter { it.score >= level })
     val low = at(LOW_CONF); val point = at(POINT_CONF); val high = at(HIGH_CONF)
     val lo = minOf(low.size, point.size, high.size); val hi = maxOf(low.size, point.size, high.size)
-    return CameraCount(Range(lo, hi), point.size.coerceIn(lo, hi), point)
+    return CameraCount(Range(lo, hi), point.size.coerceIn(lo, hi), point, nms(all.filter { it.score >= HIGH_CONF }, containment = 2f))
 }
 
 /** One event can have several photos; the event count is the largest per field, never the sum. */
@@ -62,6 +67,7 @@ fun mergeEvent(photos: List<CameraCount>): CameraCount {
         Range(photos.maxOf { it.range.lo }, photos.maxOf { it.range.hi }),
         photos.maxOf { it.point },
         photos.maxBy { it.point }.boxesAtPoint,
+        photos.maxBy { it.point }.blurBoxes,
     )
 }
 

@@ -102,13 +102,63 @@ class CheckInSessionTest {
         assertTrue(rough(r.image) < rough(photo) * 0.5)
     }
 
+    @Test fun onlyTheBestPhotoIsKeptInMemory() = runBlocking {
+        val s = session()
+        s.addPhoto(photoWithPeople(2, testPhoto(seed = 1))); s.addPhoto(photoWithPeople(9, testPhoto(seed = 2))); s.addPhoto(photoWithPeople(4, testPhoto(seed = 3)))
+        assertEquals(1, s.retainedImages); assertEquals(3, s.photoCount); assertEquals(9, s.camera().point)
+    }
+
+    @Test fun aPersonSeenOnlyAtLowConfidenceStillGetsABlurredHead() = runBlocking {
+        val photo = photoWithPeople(0, testPhoto(seed = 8))
+        val faint = PersonDetector { img, c -> if (img.width == 1280) listOf(Box(500f, 100f, 600f, 400f, 0.2f)).filter { it.score >= c } else emptyList() }
+        val s = session(faint); s.addPhoto(photo); s.setHand("0"); s.setClubUrl("club.example/x")
+        val r = ready(s.export(noOverlay))
+        val e = headEllipse(Box(500f, 100f, 600f, 400f, 0.2f))
+        fun rough(img: RgbImage): Double { val l = img.luma(); var t = 0.0; var n = 0
+            for (y in (e.cy - e.ry / 2).toInt() until (e.cy + e.ry / 2).toInt()) for (x in (e.cx - e.rx / 2).toInt() until (e.cx + e.rx / 2).toInt()) { t += Math.abs(l[y * 1280 + x] - l[y * 1280 + x + 1]); n++ }
+            return t / n }
+        assertTrue(rough(r.image) < rough(photo) * 0.5)
+    }
+
+    @Test fun faceFinderFailureRefusesTheExport() = runBlocking {
+        val s = session(faces = FaceFinder { throw IllegalStateException("ML Kit failed") })
+        s.addPhoto(photoWithPeople(2)); s.setHand("2"); s.setClubUrl("club.example/x")
+        val out = s.export(noOverlay)
+        assertTrue(out is ExportOutcome.Invalid, "never export when the face check could not run")
+        assertTrue((out as ExportOutcome.Invalid).reason.contains("faces"))
+    }
+
+    @Test fun changingTheUrlDropsTheOldTitle() = runBlocking {
+        val s = session(); s.addPhoto(photoWithPeople(2)); s.setHand("2")
+        s.setClubUrl("club.example/a"); s.setClubTitle("Chess Club", "club.example/a")
+        s.setClubUrl("other.example/b")
+        val lines = ArrayList<String>(); s.export { _, l -> lines += l }
+        assertEquals("OTHER.EXAMPLE/B", lines[0])
+    }
+
+    @Test fun aTitleFetchedForAnEarlierUrlIsIgnored() = runBlocking {
+        val s = session(); s.addPhoto(photoWithPeople(2)); s.setHand("2"); s.setClubUrl("club.example/b")
+        s.setClubTitle("Old club", "club.example/a")          // a slow fetch for what was typed before
+        val lines = ArrayList<String>(); s.export { _, l -> lines += l }
+        assertEquals("CLUB.EXAMPLE/B", lines[0])
+    }
+
+    @Test fun eventTimeIsWhenTheFirstPhotoWasTaken() = runBlocking {
+        var now = 1_700_000_000_000L
+        val s = CheckInSession(countFromPixel, noFaces, places, encoder, clockMs = { now }, offsetSeconds = { 0 },
+            newEventId = { byteArrayOf(1, 2, 3, 4, 5, 6) }, installId = byteArrayOf(1, 2, 3, 4))
+        s.addPhoto(photoWithPeople(2)); now += 600_000          // ten minutes of filling in the form
+        s.setHand("2"); s.setClubUrl("club.example/x")
+        assertEquals(1_700_000_000L, ready(s.export(noOverlay)).payload.utcSeconds)
+    }
+
     @Test fun flaggedWhenRangesAreFarApart() = runBlocking {
         val s = session(); s.addPhoto(photoWithPeople(20)); s.setHand("5-6"); s.setClubUrl("club.example/x")
         assertTrue(ready(s.export(noOverlay)).flagged)
     }
 
     @Test fun exportDecodesAfterJpegEndToEnd() = runBlocking {
-        val s = session(); s.addPhoto(photoWithPeople(5)); s.setHand("4-6"); s.setClubUrl("https://Club.Example/Chess/"); s.setClubTitle("Chess Club")
+        val s = session(); s.addPhoto(photoWithPeople(5)); s.setHand("4-6"); s.setClubUrl("https://Club.Example/Chess/"); s.setClubTitle("Chess Club", "club.example/Chess")
         val r = ready(s.export(noOverlay))
         val back = ImageIO.read(ByteArrayInputStream(r.jpeg)).toRgb()
         val coded = ReedSolomon.encode(r.payload.encode()).size

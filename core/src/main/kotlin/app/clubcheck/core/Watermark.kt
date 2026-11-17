@@ -16,6 +16,8 @@ object Watermark {
     private const val STEP = 80.0
     private const val COEF = 1 * 8 + 1            // coefficient (1,1)
     private const val DARK_BELOW = 125.0
+    /** Near-black blocks (letterbox bars, black frames) cannot carry the mark: QIM would clip at 0. */
+    private const val TOO_BLACK = 24.0
 
     private fun bitIndex(bx: Int, by: Int, nbits: Int): Int =
         (((bx.toLong() * 73856093L) xor (by.toLong() * 19349663L)) % nbits).toInt()
@@ -31,7 +33,7 @@ object Watermark {
         var used = 0
         for (by in 0 until bh) for (bx in firstBx until bw) {
             val blk = block(luma, img.width, bx, by)
-            if (blk.average() >= DARK_BELOW) continue
+            if (blk.average().let { it >= DARK_BELOW || it < TOO_BLACK }) continue
             val bit = (coded[bitIndex(bx, by, nbits) / 8].toInt() shr (7 - bitIndex(bx, by, nbits) % 8)) and 1
             val d = Dct.forward(blk)
             val off = bit * STEP / 2
@@ -56,7 +58,7 @@ object Watermark {
         val vote = DoubleArray(nbits)
         for (by in 0 until bh) for (bx in StripCodec.WIDTH_PX / 8 until bw) {
             val blk = block(luma, img.width, bx, by)
-            if (blk.average() >= DARK_BELOW) continue
+            if (blk.average().let { it >= DARK_BELOW || it < TOO_BLACK }) continue
             val c = Dct.forward(blk)[COEF]
             val d0 = abs(c - Math.rint(c / STEP) * STEP)
             val d1 = abs(c - (Math.rint((c - STEP / 2) / STEP) * STEP + STEP / 2))

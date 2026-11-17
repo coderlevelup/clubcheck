@@ -17,7 +17,7 @@ fun Bitmap.toRgbImage(): RgbImage {
 }
 
 /** Decodes a camera JPEG (longest side limited to about [maxSide]) and rotates it upright using its EXIF orientation. */
-fun decodeUpright(bytes: ByteArray, maxSide: Int = 4096): RgbImage {
+fun decodeUpright(bytes: ByteArray, maxSide: Int = 2560): RgbImage {
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
     var sample = 1

@@ -28,9 +28,9 @@ Without it the app shows "People counting model ... is missing" when you add a p
 
 ## 4. Share and decode
 - [ ] Share through WhatsApp to yourself; save the received photo to your computer.
-- [ ] `./gradlew :core:run` is not set up; instead run the test or CLI:
-      `./gradlew :core:test --tests '*DecodeCliTest*'` for the spike image, and for your own image copy it to
-      `spikes/2026-11-17-event-photo/images/` and run the CLI class `app.clubcheck.core.DecodeCliKt` with the file path.
+- [ ] Copy the received image to your computer and decode it: put it in `spikes/2026-11-17-event-photo/images/`, then run
+      `./gradlew :core:test --tests '*DecodeCliTest*'` for the reference image, or run `app.clubcheck.core.DecodeCliKt` with the
+      image path (for example from IntelliJ) to print the data found in your own file.
 - [ ] Both layers decode (`viaStrip` and `viaWatermark` true, `layersAgree` true). Note the app used and the file size.
 - [ ] Repeat once through another app (Telegram, Signal, email) and once as a screenshot.
 
