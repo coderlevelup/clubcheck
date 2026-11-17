@@ -2,7 +2,11 @@
 
 Status: throwaway. Proves or disproves the risky parts of the design on a single real photo
 (a seated audience of about 60, seen from behind, at a developer meetup). Nothing here is app code.
-Photos and model weights are deliberately not committed (this repo is public).
+The original photo and model weights are deliberately not committed (this repo is public).
+Two blurred images are in `images/`, committed with the owner's say-so: `export-1280x720.png`
+(the app's export: blurred, overlay, data strip, hidden watermark) and
+`received-via-whatsapp.jpg` (the same image after a real WhatsApp round trip). The decoder in
+`spike.py` can be pointed at the second to reproduce the round-trip result.
 
 Run: `PHOTO=/path/to/photo.jpg python tiled.py` (needs `ultralytics`, `opencv-python-headless`,
 `reedsolo`, `pillow`; YOLOv8 weights `yolov8s.pt` in `/tmp/spike/models`), then `spike.py`.
