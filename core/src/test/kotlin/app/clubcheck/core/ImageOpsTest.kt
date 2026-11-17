@@ -61,4 +61,10 @@ class ImageOpsTest {
         val mid = fitToExport(checker).argb[360 * 1280 + 640] and 0xFF
         assertTrue(mid in 100..155, "expected a mid grey, got $mid")
     }
+
+    @Test fun fitIntoAnyBoxCentresOnBlack() {
+        val out = fitInto(solid(1200, 900, red), 1176, 720)       // 4:3 into 1176x720: 960x720, bars of 108px
+        assertEquals(1176, out.width); assertEquals(720, out.height)
+        assertEquals(black, out.argb[360 * 1176 + 50]); assertEquals(red, out.argb[360 * 1176 + 588])
+    }
 }

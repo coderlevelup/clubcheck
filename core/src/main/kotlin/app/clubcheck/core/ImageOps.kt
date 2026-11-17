@@ -23,11 +23,14 @@ fun applyOrientation(img: RgbImage, orientation: Int): RgbImage {
 }
 
 /** Scales to fit inside 1280x720 (area-averaged), centred on black. Nothing is cropped away. */
-fun fitToExport(img: RgbImage): RgbImage {
-    val s = minOf(EXPORT_WIDTH.toDouble() / img.width, EXPORT_HEIGHT.toDouble() / img.height)
-    val tw = Math.round(img.width * s).toInt().coerceIn(1, EXPORT_WIDTH); val th = Math.round(img.height * s).toInt().coerceIn(1, EXPORT_HEIGHT)
-    val out = IntArray(EXPORT_WIDTH * EXPORT_HEIGHT) { 0xFF000000.toInt() }
-    val ox = (EXPORT_WIDTH - tw) / 2; val oy = (EXPORT_HEIGHT - th) / 2
+fun fitToExport(img: RgbImage): RgbImage = fitInto(img, EXPORT_WIDTH, EXPORT_HEIGHT)
+
+/** Scales [img] to fit inside a [boxW] x [boxH] frame (area-averaged), centred on black. Nothing is cropped away. */
+fun fitInto(img: RgbImage, boxW: Int, boxH: Int): RgbImage {
+    val s = minOf(boxW.toDouble() / img.width, boxH.toDouble() / img.height)
+    val tw = Math.round(img.width * s).toInt().coerceIn(1, boxW); val th = Math.round(img.height * s).toInt().coerceIn(1, boxH)
+    val out = IntArray(boxW * boxH) { 0xFF000000.toInt() }
+    val ox = (boxW - tw) / 2; val oy = (boxH - th) / 2
     for (dy in 0 until th) {
         val sy0 = (dy / s).toInt().coerceAtMost(img.height - 1); val sy1 = (((dy + 1) / s).toInt()).coerceIn(sy0 + 1, img.height)
         for (dx in 0 until tw) {
@@ -35,8 +38,8 @@ fun fitToExport(img: RgbImage): RgbImage {
             var r = 0L; var g = 0L; var b = 0L
             for (sy in sy0 until sy1) for (sx in sx0 until sx1) { val p = img.argb[sy * img.width + sx]; r += (p shr 16) and 0xFF; g += (p shr 8) and 0xFF; b += p and 0xFF }
             val n = ((sy1 - sy0) * (sx1 - sx0)).toLong()
-            out[(oy + dy) * EXPORT_WIDTH + ox + dx] = (0xFF shl 24) or ((r / n).toInt() shl 16) or ((g / n).toInt() shl 8) or (b / n).toInt()
+            out[(oy + dy) * boxW + ox + dx] = (0xFF shl 24) or ((r / n).toInt() shl 16) or ((g / n).toInt() shl 8) or (b / n).toInt()
         }
     }
-    return RgbImage(EXPORT_WIDTH, EXPORT_HEIGHT, out)
+    return RgbImage(boxW, boxH, out)
 }

@@ -29,7 +29,7 @@ object Watermark {
         val nbits = coded.size * 8
         val luma = img.luma()
         val bw = img.width / 8; val bh = img.height / 8
-        val firstBx = StripCodec.WIDTH_PX / 8
+        val firstBx = StripCodec.columnsFor(coded.size, img.height)     // one block column per strip column
         var used = 0
         for (by in 0 until bh) for (bx in firstBx until bw) {
             val blk = block(luma, img.width, bx, by)
@@ -56,7 +56,8 @@ object Watermark {
         val luma = img.luma()
         val bw = img.width / 8; val bh = img.height / 8
         val vote = DoubleArray(nbits)
-        for (by in 0 until bh) for (bx in StripCodec.WIDTH_PX / 8 until bw) {
+        val firstBx = StripCodec.columnsFor(codedLength, img.height)
+        for (by in 0 until bh) for (bx in firstBx until bw) {
             val blk = block(luma, img.width, bx, by)
             if (blk.average().let { it >= DARK_BELOW || it < TOO_BLACK }) continue
             val c = Dct.forward(blk)[COEF]

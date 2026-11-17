@@ -40,9 +40,9 @@ class DecodeCliTest {
     }
 
     @Test fun decodesOurOwnExportsOfAnyUrlLength() {
-        for (url in listOf("a.b", "club.example/chess", "x".repeat(65))) {
+        for (url in listOf("a.b", "club.example/chess", "x".repeat(120))) {
             val p = Payload(byteArrayOf(1, 2, 3, 4, 5, 6), 1700000000L, 8, CoarseCell.NONE, Range(1, 2), Range(1, 3), 2, 1, byteArrayOf(1, 2, 3, 4), url)
-            val back = jpegRoundTrip(composeExport(testPhoto(), p, { _, _ -> }, "t").image, 75)
+            val back = jpegRoundTrip(composeExport(testPhoto(), p, { _, _, _ -> }, "t").image, 75)
             assertEquals(p, decodeExport(back)!!.payload, "url length ${url.length}")
         }
     }

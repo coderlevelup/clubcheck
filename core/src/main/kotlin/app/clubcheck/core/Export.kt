@@ -20,29 +20,39 @@ private fun offsetText(zone: ZoneOffset): String {
     return "UTC$sign$h" + if (m != 0) ":%02d".format(m) else ""
 }
 
-/** The three visible overlay lines: title, local date and time with the coarse area, and both counts. */
+/** Draws the header text onto the export image; the Int is the strip's width in pixels, so text stays clear of it. */
+typealias OverlayDraw = (RgbImage, List<String>, Int) -> Unit
+
+/**
+ * The visible header lines: the club title, the club link in readable form (skipped when the title already is the
+ * link), local date and time with the coarse area, and both counts.
+ */
 fun overlayLines(p: Payload, title: String, zone: ZoneOffset): List<String> {
     val local = Instant.ofEpochSecond(p.utcSeconds).atOffset(zone).format(dateFormat).uppercase(Locale.ENGLISH)
     val area = cellLabel(p.cell)
     val whenWhere = "$local ${offsetText(zone)}" + if (area != null) "   $area" else ""
     val verdict = if (flagged(p.hand, p.camera)) "CHECK COUNTS" else "RANGES OVERLAP"
-    return listOf(title.uppercase(Locale.ENGLISH), whenWhere, "HAND ${rangeText(p.hand)}  CAMERA ${rangeText(p.camera)}  $verdict")
+    val link = if (title.equals(p.url, ignoreCase = true)) emptyList() else listOf(p.url)
+    return listOf(title.uppercase(Locale.ENGLISH)) + link + listOf(whenWhere, "HAND ${rangeText(p.hand)}  CAMERA ${rangeText(p.camera)}  $verdict")
 }
 
 data class ExportResult(val image: RgbImage, val report: EmbedReport)
 
 /**
- * Builds the shareable image from an already blurred 1280x720 photo: overlay (drawn by [drawOverlay]),
- * then the data strip, then the hidden watermark last. The input is not modified.
+ * Builds the shareable image from an already blurred photo of any size. The data strip gets its own column on
+ * the left (as wide as the payload needs) and the photo is fitted into the area beside it, so the strip never
+ * covers the picture. Then the overlay is drawn by [drawOverlay], and the hidden watermark goes in last.
+ * The input is not modified.
  */
-fun composeExport(blurred: RgbImage, p: Payload, drawOverlay: (RgbImage, List<String>) -> Unit, title: String): ExportResult {
-    require(blurred.width == EXPORT_WIDTH && blurred.height == EXPORT_HEIGHT) { "export image must be ${EXPORT_WIDTH}x$EXPORT_HEIGHT" }
-    val img = blurred.copy()
-    drawOverlay(img, overlayLines(p, title, ZoneOffset.ofTotalSeconds(p.tz15 * 900)))
+fun composeExport(blurred: RgbImage, p: Payload, drawOverlay: OverlayDraw, title: String): ExportResult {
     val coded = ReedSolomon.encode(p.encode())
+    val stripWidth = StripCodec.widthPx(coded.size, EXPORT_HEIGHT)
+    val photo = fitInto(blurred, EXPORT_WIDTH - stripWidth, EXPORT_HEIGHT)
+    val img = RgbImage(EXPORT_WIDTH, EXPORT_HEIGHT, IntArray(EXPORT_WIDTH * EXPORT_HEIGHT) { 0xFF000000.toInt() })
+    for (y in 0 until EXPORT_HEIGHT) System.arraycopy(photo.argb, y * photo.width, img.argb, y * EXPORT_WIDTH + stripWidth, photo.width)
+    drawOverlay(img, overlayLines(p, title, ZoneOffset.ofTotalSeconds(p.tz15 * 900)), stripWidth)
     StripCodec.draw(img, coded)
-    val report = Watermark.embed(img, coded)
-    return ExportResult(img, report)
+    return ExportResult(img, Watermark.embed(img, coded))
 }
 
 /** Turns pixels into JPEG bytes. On Android this is `Bitmap.compress`; both write no metadata. */

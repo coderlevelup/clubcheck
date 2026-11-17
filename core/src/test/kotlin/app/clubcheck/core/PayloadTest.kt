@@ -74,6 +74,6 @@ class PayloadTest {
     @Test fun urlOverMaxIsRejected() {
         val v = vectors().first()
         assertThrows(IllegalArgumentException::class.java) { payloadOf(v).copy(url = "a".repeat(MAX_URL_BYTES + 1)) }
-        assertEquals(65, MAX_URL_BYTES)
+        assertEquals(120, MAX_URL_BYTES)
     }
 }

@@ -2,7 +2,7 @@ package app.clubcheck.core
 
 import java.nio.ByteBuffer
 
-const val MAX_URL_BYTES = 65
+const val MAX_URL_BYTES = 120
 
 data class Range(val lo: Int, val hi: Int)
 

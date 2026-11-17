@@ -24,6 +24,8 @@ Without it the app shows "People counting model ... is missing" when you add a p
 - [ ] Enter your own count (a number or a range), a club web address, and see its title appear (online).
 - [ ] Turn the area switch on and allow coarse location; then repeat with it off and with permission denied.
 - [ ] Make the shareable image. It shows the strip on the left, the text overlay, the repo footer.
+- [ ] The data strip is a column beside the photo (it does not cover anyone at the left edge). The club link is readable in the header.
+- [ ] Try a very long club link (about 120 characters): the header wraps it onto more lines, nothing runs off the edge, the strip is wider, and the image still decodes after WhatsApp.
 - [ ] Zoom in on the image. Every face and head is blurred. Note any that are not: ___
 
 ## 4. Share and decode

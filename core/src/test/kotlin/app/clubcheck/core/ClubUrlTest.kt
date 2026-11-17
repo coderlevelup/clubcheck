@@ -12,14 +12,14 @@ class ClubUrlTest {
 
     @Test fun normaliseKeepsPathCase() = assertEquals("club.example/Events/Chess", normaliseClubUrl("https://Club.Example/Events/Chess").getOrThrow())
 
-    @Test fun normaliseAcceptsExactly65Bytes() {
-        val url = "club.example/" + "a".repeat(65 - "club.example/".length)
-        assertEquals(65, normaliseClubUrl(url).getOrThrow().length)
+    @Test fun normaliseAcceptsExactly120Bytes() {
+        val url = "club.example/" + "a".repeat(120 - "club.example/".length)
+        assertEquals(120, normaliseClubUrl(url).getOrThrow().length)
     }
 
-    @Test fun normaliseRejectsOver65Bytes() {
-        val r = normaliseClubUrl("club.example/" + "a".repeat(66 - "club.example/".length))
-        assertTrue(r.isFailure); assertTrue(r.exceptionOrNull()!!.message!!.contains("65"))
+    @Test fun normaliseRejectsOver120Bytes() {
+        val r = normaliseClubUrl("club.example/" + "a".repeat(121 - "club.example/".length))
+        assertTrue(r.isFailure); assertTrue(r.exceptionOrNull()!!.message!!.contains("120"))
     }
 
     @Test fun normaliseRejectsEmptyOrBlankOrSpaces() {

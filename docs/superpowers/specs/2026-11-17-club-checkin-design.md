@@ -158,3 +158,14 @@ payload byte layout; flag thresholds; dashboard layout.
   lowering embedding strength threshold on bright images.
 - Social apps may strip metadata entirely; none of the design relies on metadata.
 - The hidden scheme is not secure against deliberate removal.
+
+## Layout update (after the first Android build)
+- The data strip is its own column on the left of the 1280x720 export; the photo is scaled to fit in the area
+  beside it, so the strip never covers the picture. The strip is 104 px for a normal link and widens (in 8 px
+  columns, up to 192 px) when the link is longer.
+- Club links may be up to 120 bytes (was 65). The extra bytes cost strip width, not text size.
+- The header shows the club title and, on its own line, the club link in readable form (skipped when the title
+  already is the link). Long lines, such as a long link, word-wrap at natural points (spaces, then after `/`,
+  `-` and `.`) and the header panel grows to fit.
+- Decoding is unchanged for older images: the decoder tries each possible payload length, which also fixes the
+  strip width.

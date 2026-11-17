@@ -59,7 +59,7 @@ class CheckInSession(
     fun setHand(text: String) { hand = if (text.isBlank()) null else parseHandRange(text) }
     fun setLocationEnabled(on: Boolean) { locationOn = on }
 
-    suspend fun export(drawOverlay: (RgbImage, List<String>) -> Unit): ExportOutcome {
+    suspend fun export(drawOverlay: OverlayDraw): ExportOutcome {
         val image = bestImage; val count = bestCount
         if (image == null || count == null) return ExportOutcome.Invalid("Take at least one photo first.")
         val handRange = hand?.getOrElse { return ExportOutcome.Invalid(it.message ?: "Check the number you counted.") }
@@ -76,7 +76,7 @@ class CheckInSession(
             cell = location.current(locationOn), hand = handRange, camera = merged.range, cameraPoint = merged.point,
             photos = counts.size, installId = installId, url = url,
         )
-        val result = composeExport(fitToExport(blurred), payload, drawOverlay, clubTitle?.takeIf { titleUrl == url } ?: url)
+        val result = composeExport(blurred, payload, drawOverlay, clubTitle?.takeIf { titleUrl == url } ?: url)
         return ExportOutcome.Ready(encodeExportJpeg(result.image, encoder), result.image, payload, flagged(handRange, merged.range), result.report.weak)
     }
 }

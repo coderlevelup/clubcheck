@@ -20,7 +20,7 @@
 - Counts are ranges. Hand range typed by the organiser. Camera range = 3x3 tiled count (plus whole image, tiles overlap 20%) at confidence 0.35 (low), 0.25 (point), 0.15 (high), NMS IoU 0.5; fixed, never tuned per photo. Flag only when the ranges are more than 3 people apart.
 - Export: 1280x720 JPEG (quality 92), no EXIF or other metadata, strip + overlay + watermark + repo footer `github.com/coderlevelup/clubcheck`.
 - Payload (big-endian): `B version=1, 6B event id, u32 utc seconds, s8 tz15, s16 lat*100, s16 lon*100, u16 handLo, u16 handHi, u16 camLo, u16 camHi, u16 camPoint, u8 photos, 4B install id, u8 urlLen, url bytes, u16 CRC-16/CCITT-FALSE` (init 0xFFFF, poly 0x1021). Reed-Solomon over GF(256), prim 0x11D, first root 0, 40 parity bytes.
-- Strip: cells 8px, 13 columns (104px) on the left edge; rows 0-1 and 88-89 are alternating finder rows (`(row+col) % 2` white); data rows 2-87 carry bits MSB first, then pseudo-random fill; white = 1.
+- Strip (superseded by the layout update in the spec: it is its own column, 13 to 24 columns wide depending on payload, and the photo is fitted beside it): cells 8px, 13 columns (104px) on the left edge; rows 0-1 and 88-89 are alternating finder rows (`(row+col) % 2` white); data rows 2-87 carry bits MSB first, then pseudo-random fill; white = 1.
 - Watermark: luma only, 8x8 DCT blocks outside the strip columns, coefficient (1,1), step 80, blocks with mean luma < 125 only, bit index `((bx*73856093) xor (by*19349663)) mod nbits`, QIM, soft-vote decode.
 - Blur: Gaussian on soft ellipses. Person box: head diameter `d = max(min(0.5*w, 0.22*h), 28)`, centre `(cx, y1 + 0.55d)`, radii `0.75d` by `0.8d`, sigma `max(0.5d, 10)`. Face box: `d = max(w, h, 24)`, radii `0.85d` by `0.95d`, sigma `max(0.45d, 8)`; face confidence 0.15.
 - Use ML Kit where it fits: **ML Kit face detection** (bundled model, not the Play-services download, so it works offline) for the face pass, run on the whole photo and on the same 3x3 tiles as counting because faces in a crowd are small (`PERFORMANCE_MODE_ACCURATE`, small `minFaceSize`, no landmarks, contours or classification). ML Kit has no multi-person detector (its object detection is coarse and capped), so people counting uses MediaPipe's Object Detector with an EfficientDet-Lite model (also Google, Apache-2.0).
@@ -33,7 +33,7 @@
 2. **Location permission denied or off.** The check-in must still succeed with "no location" encoded as sentinel `lat = lon = Short.MIN_VALUE` and no "area" text on the overlay. (Tasks 1, 7)
 3. **Hand range typed backwards (65-55), blank, or one number.** Normalise reversed input, accept a single number as a range of one, refuse blank. (Task 5)
 4. **A very bright photo.** Too few dark blocks for the watermark: export must still succeed, strip must still decode, and the result must report the weak watermark. (Task 3)
-5. **Club URL too long or odd (uppercase, trailing slash, no scheme).** Normalise; reject over 65 bytes with a clear message instead of overflowing the strip. (Tasks 1, 8)
+5. **Club URL too long or odd (uppercase, trailing slash, no scheme).** Normalise; reject over 120 bytes with a clear message instead of overflowing the strip. (Tasks 1, 8)
 
 ---
 
@@ -52,7 +52,7 @@
   - `data class Payload(val eventId: ByteArray, val utcSeconds: Long, val tz15: Int, val cell: CoarseCell, val hand: Range, val camera: Range, val cameraPoint: Int, val photos: Int, val installId: ByteArray, val url: String)`
   - `fun Payload.encode(): ByteArray` (includes CRC), `fun Payload.Companion.decode(bytes: ByteArray): Payload?` (null on CRC or length failure)
   - `object ReedSolomon { const val PARITY = 40; fun encode(data: ByteArray): ByteArray; fun decode(coded: ByteArray): ByteArray? }`
-  - `const val MAX_URL_BYTES = 65`
+  - `const val MAX_URL_BYTES = 120`
 
 - [ ] **Step 1: Scaffold.** Install the Android SDK command-line tools under `/opt/android-sdk` with platform and build-tools for the chosen compileSdk and accept licences; `gradle wrapper`; two modules building empty. Verify: `./gradlew :core:test :app:assembleDebug` succeeds (no tests yet is fine).
 - [ ] **Step 2: Write `vectors.py`** reusing `spike.py` (`make_payload`, `rsc.encode`) to emit three vectors (full payload; no-location payload; max-length URL) as hex `payload` and `coded`. Run it and commit the JSON.

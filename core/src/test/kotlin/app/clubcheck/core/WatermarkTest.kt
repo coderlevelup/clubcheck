@@ -69,4 +69,11 @@ class WatermarkTest {
         val decodes = ReedSolomon.decode(Watermark.read(back, coded.size)) != null
         assertTrue(report.weak || decodes, "not weak (${report.votesPerBit} votes/bit) yet it does not decode")
     }
+
+    @Test fun aLongLinkPayloadSurvivesJpeg() {
+        val long = ReedSolomon.encode(ByteArray(154) { (it * 5 + 2).toByte() })
+        val img = testPhoto(); val report = Watermark.embed(img, long)
+        assertFalse(report.weak, "votes per bit ${report.votesPerBit}")
+        assertArrayEquals(ByteArray(154) { (it * 5 + 2).toByte() }, ReedSolomon.decode(Watermark.read(jpegRoundTrip(img, 75), long.size)))
+    }
 }

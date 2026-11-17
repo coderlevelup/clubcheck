@@ -27,7 +27,7 @@ fun decodeExport(source: RgbImage): Decoded? {
         else -> return null
     }
     val shortest = Payload.FIXED_BYTES + 2 + ReedSolomon.PARITY
-    val longest = StripCodec.capacityBytes(img.height)
+    val longest = minOf(Payload.FIXED_BYTES + 2 + MAX_URL_BYTES + ReedSolomon.PARITY, StripCodec.capacityBytes(img.height, StripCodec.MAX_COLS))
     var strip: Payload? = null; var stripLength = -1
     for (len in shortest..longest) {
         strip = decodeCoded(StripCodec.read(img, len))

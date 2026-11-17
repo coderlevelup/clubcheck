@@ -32,7 +32,7 @@ class ExportEncodeTest {
 
     @Test fun encodedExportStillDecodesAfterJpegQuality92() {
         val p = Payload(byteArrayOf(1, 2, 3, 4, 5, 6), 1700000000L, 8, CoarseCell.NONE, Range(5, 6), Range(4, 7), 5, 1, byteArrayOf(1, 2, 3, 4), "club.example/x")
-        val result = composeExport(testPhoto(), p, { _, _ -> }, "x")
+        val result = composeExport(testPhoto(), p, { _, _, _ -> }, "x")
         val bytes = encodeExportJpeg(result.image, imageIoEncoder)
         val back = javax.imageio.ImageIO.read(java.io.ByteArrayInputStream(bytes)).toRgb()
         val coded = ReedSolomon.encode(p.encode()).size

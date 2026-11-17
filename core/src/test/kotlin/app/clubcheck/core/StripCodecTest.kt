@@ -15,8 +15,20 @@ class StripCodecTest {
 
     @Test fun capacityIs139BytesFor720Rows() = assertEquals(139, StripCodec.capacityBytes(720))
 
-    @Test fun payloadTooLargeThrows() {
-        assertThrows(IllegalArgumentException::class.java) { StripCodec.draw(testPhoto(), ByteArray(140)) }
+    @Test fun payloadBeyondTheWidestStripThrows() {
+        assertThrows(IllegalArgumentException::class.java) { StripCodec.draw(testPhoto(), ByteArray(StripCodec.capacityBytes(720, StripCodec.MAX_COLS) + 1)) }
+    }
+
+    @Test fun columnsGrowWithThePayload() {
+        assertEquals(13, StripCodec.columnsFor(131, 720)); assertEquals(13, StripCodec.columnsFor(139, 720))
+        assertEquals(14, StripCodec.columnsFor(140, 720)); assertEquals(19, StripCodec.columnsFor(194, 720))
+        assertEquals(104, StripCodec.widthPx(131, 720)); assertEquals(152, StripCodec.widthPx(194, 720))
+    }
+
+    @Test fun aLongLinkWidensTheStripAndStillDecodesAfterJpeg() {
+        val long = ReedSolomon.encode(ByteArray(154) { (it * 3 + 1).toByte() })     // 194 bytes: a 120-character link
+        val img = testPhoto(); StripCodec.draw(img, long)
+        assertArrayEquals(ByteArray(154) { (it * 3 + 1).toByte() }, ReedSolomon.decode(StripCodec.read(jpegRoundTrip(img, 60), long.size)))
     }
 
     @Test fun survivesJpegQ50() {

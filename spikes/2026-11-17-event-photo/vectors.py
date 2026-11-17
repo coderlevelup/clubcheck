@@ -21,7 +21,7 @@ vectors = [
     build('full', 'e705d9a5bc34', 1794905621, 8, -3390, 1840, (55, 65), (56, 74), 60, 1, 'a1b2c3d4',
           'rsvp.withgoogle.com/events/android-developer-day-capetown'),
     build('no-location', '0102030405ff', 1700000000, -20, NONE, NONE, (3, 3), (0, 0), 0, 2, '00000001', 'club.example/x'),
-    build('max-url', 'ffffffffffff', 4294967295, 22, 5100, -12200, (0, 65535), (1, 2), 1, 9, 'deadbeef', 'a' * 65),
+    build('max-url', 'ffffffffffff', 4294967295, 22, 5100, -12200, (0, 65535), (1, 2), 1, 9, 'deadbeef', 'a' * 120),
 ]
 out = os.path.join(here, '..', '..', 'core', 'src', 'test', 'resources', 'vectors.json')
 os.makedirs(os.path.dirname(out), exist_ok=True)

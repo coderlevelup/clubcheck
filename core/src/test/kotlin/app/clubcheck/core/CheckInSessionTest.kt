@@ -22,7 +22,7 @@ class CheckInSessionTest {
     )
     private fun photoWithPeople(n: Int, base: RgbImage = testPhoto()) = base.also { it.argb[0] = (0xFF shl 24) or n }
     private fun ready(o: ExportOutcome) = o as ExportOutcome.Ready
-    private val noOverlay: (RgbImage, List<String>) -> Unit = { _, _ -> }
+    private val noOverlay: OverlayDraw = { _, _, _ -> }
 
     @Test fun exportBlockedWithoutHandRange() = runBlocking {
         val s = session(); s.addPhoto(photoWithPeople(3)); s.setClubUrl("club.example/x")
@@ -41,8 +41,8 @@ class CheckInSessionTest {
 
     @Test fun reversedAndLongInputsGiveClearReasons() = runBlocking {
         val s = session(); s.addPhoto(photoWithPeople(3)); s.setHand("65-55")
-        s.setClubUrl("club.example/" + "a".repeat(80))
-        assertTrue((s.export(noOverlay) as ExportOutcome.Invalid).reason.contains("65"))
+        s.setClubUrl("club.example/" + "a".repeat(130))
+        assertTrue((s.export(noOverlay) as ExportOutcome.Invalid).reason.contains("120"))
         s.setClubUrl("club.example/x")
         assertEquals(Range(55, 65), ready(s.export(noOverlay)).payload.hand)
     }
@@ -57,7 +57,7 @@ class CheckInSessionTest {
     @Test fun locationOffExportsWithoutArea() = runBlocking {
         val s = session(); s.addPhoto(photoWithPeople(3)); s.setHand("3"); s.setClubUrl("club.example/x"); s.setLocationEnabled(false)
         val lines = ArrayList<String>()
-        val r = ready(s.export { _, l -> lines += l })
+        val r = ready(s.export { _, l, _ -> lines += l })
         assertEquals(CoarseCell.NONE, r.payload.cell)
         assertFalse(lines[1].contains("S 18"))
     }
@@ -76,30 +76,21 @@ class CheckInSessionTest {
         assertEquals(r.payload, Payload.decode(ReedSolomon.decode(StripCodec.read(r.image, coded))!!))
     }
 
-    @Test fun headsOfDetectedPeopleAreBlurredInTheExport() = runBlocking {
+    @Test fun headsOfDetectedPeopleAreBlurredInTheExport() {
         val photo = photoWithPeople(0, testPhoto(seed = 6))
-        val detector = PersonDetector { img, c -> if (img.width == 1280) listOf(Box(500f, 100f, 600f, 400f, 0.9f)).filter { it.score >= c } else emptyList() }
-        val s = session(detector); s.addPhoto(photo); s.setHand("1"); s.setClubUrl("club.example/x")
-        val r = ready(s.export(noOverlay))
+        val person = PersonDetector { img, c -> if (img.width == 1280) listOf(Box(500f, 100f, 600f, 400f, 0.9f)).filter { it.score >= c } else emptyList() }
         val e = headEllipse(Box(500f, 100f, 600f, 400f, 0.9f))
-        fun roughness(img: RgbImage): Double {
-            val l = img.luma(); var sum = 0.0; var n = 0
-            for (y in (e.cy - e.ry / 2).toInt() until (e.cy + e.ry / 2).toInt()) for (x in (e.cx - e.rx / 2).toInt() until (e.cx + e.rx / 2).toInt()) { sum += Math.abs(l[y * 1280 + x] - l[y * 1280 + x + 1]); n++ }
-            return sum / n
-        }
-        assertTrue(roughness(r.image) < roughness(photo) * 0.5, "pixel noise inside the head should be smoothed away")
+        val blurred = roughnessAt(exportWith(person, noFaces, photo.copy()), e.cx.toDouble(), e.cy.toDouble(), e.rx.toDouble(), e.ry.toDouble())
+        val control = roughnessAt(exportWith(nobody, noFaces, photo.copy()), e.cx.toDouble(), e.cy.toDouble(), e.rx.toDouble(), e.ry.toDouble())
+        assertTrue(blurred < control * 0.5, "pixel noise inside the head should be smoothed away: $blurred vs $control")
     }
 
-    @Test fun facesFromTheFaceFinderAreBlurredToo() = runBlocking {
+    @Test fun facesFromTheFaceFinderAreBlurredToo() {
         val photo = photoWithPeople(0, testPhoto(seed = 7))
-        val faces = FaceFinder { listOf(Box(700f, 300f, 760f, 360f, 1f)) }
-        val s = session(faces = faces); s.addPhoto(photo); s.setHand("1"); s.setClubUrl("club.example/x")
-        val r = ready(s.export(noOverlay))
-        val e = faceEllipse(Box(700f, 300f, 760f, 360f, 1f))
-        fun rough(img: RgbImage): Double { val l = img.luma(); var t = 0.0; var n = 0
-            for (y in (e.cy - 10).toInt()..(e.cy + 10).toInt()) for (x in (e.cx - 10).toInt()..(e.cx + 10).toInt()) { t += Math.abs(l[y * 1280 + x] - l[y * 1280 + x + 1]); n++ }
-            return t / n }
-        assertTrue(rough(r.image) < rough(photo) * 0.5)
+        val face = Box(700f, 300f, 760f, 360f, 1f); val e = faceEllipse(face)
+        val blurred = roughnessAt(exportWith(nobody, FaceFinder { listOf(face) }, photo.copy()), e.cx.toDouble(), e.cy.toDouble(), 20.0, 20.0)
+        val control = roughnessAt(exportWith(nobody, noFaces, photo.copy()), e.cx.toDouble(), e.cy.toDouble(), 20.0, 20.0)
+        assertTrue(blurred < control * 0.5, "$blurred vs $control")
     }
 
     @Test fun onlyTheBestPhotoIsKeptInMemory() = runBlocking {
@@ -108,16 +99,25 @@ class CheckInSessionTest {
         assertEquals(1, s.retainedImages); assertEquals(3, s.photoCount); assertEquals(9, s.camera().point)
     }
 
-    @Test fun aPersonSeenOnlyAtLowConfidenceStillGetsABlurredHead() = runBlocking {
+    // The export fits the photo into the area right of the 104px strip: 1176 wide, 29px of bar above.
+    private val sx = 1176.0 / 1280; private val ox = 104.0; private val oy = 29.0
+    private fun roughnessAt(img: RgbImage, cx: Double, cy: Double, rx: Double, ry: Double): Double {
+        val l = img.luma(); var sum = 0.0; var n = 0
+        for (y in (oy + (cy - ry / 2) * sx).toInt() until (oy + (cy + ry / 2) * sx).toInt()) for (x in (ox + (cx - rx / 2) * sx).toInt() until (ox + (cx + rx / 2) * sx).toInt()) { sum += Math.abs(l[y * 1280 + x] - l[y * 1280 + x + 1]); n++ }
+        return sum / n
+    }
+    private fun exportWith(detector: PersonDetector, faces: FaceFinder, photo: RgbImage): RgbImage = runBlocking {
+        val s = session(detector, faces); s.addPhoto(photo); s.setHand("1"); s.setClubUrl("club.example/x"); ready(s.export(noOverlay)).image
+    }
+    private val nobody = PersonDetector { _, _ -> emptyList() }
+
+    @Test fun aPersonSeenOnlyAtLowConfidenceStillGetsABlurredHead() {
         val photo = photoWithPeople(0, testPhoto(seed = 8))
         val faint = PersonDetector { img, c -> if (img.width == 1280) listOf(Box(500f, 100f, 600f, 400f, 0.2f)).filter { it.score >= c } else emptyList() }
-        val s = session(faint); s.addPhoto(photo); s.setHand("0"); s.setClubUrl("club.example/x")
-        val r = ready(s.export(noOverlay))
         val e = headEllipse(Box(500f, 100f, 600f, 400f, 0.2f))
-        fun rough(img: RgbImage): Double { val l = img.luma(); var t = 0.0; var n = 0
-            for (y in (e.cy - e.ry / 2).toInt() until (e.cy + e.ry / 2).toInt()) for (x in (e.cx - e.rx / 2).toInt() until (e.cx + e.rx / 2).toInt()) { t += Math.abs(l[y * 1280 + x] - l[y * 1280 + x + 1]); n++ }
-            return t / n }
-        assertTrue(rough(r.image) < rough(photo) * 0.5)
+        val blurred = roughnessAt(exportWith(faint, noFaces, photo.copy()), e.cx.toDouble(), e.cy.toDouble(), e.rx.toDouble(), e.ry.toDouble())
+        val control = roughnessAt(exportWith(nobody, noFaces, photo.copy()), e.cx.toDouble(), e.cy.toDouble(), e.rx.toDouble(), e.ry.toDouble())
+        assertTrue(blurred < control * 0.5, "blurred $blurred vs control $control")
     }
 
     @Test fun faceFinderFailureRefusesTheExport() = runBlocking {
@@ -132,14 +132,14 @@ class CheckInSessionTest {
         val s = session(); s.addPhoto(photoWithPeople(2)); s.setHand("2")
         s.setClubUrl("club.example/a"); s.setClubTitle("Chess Club", "club.example/a")
         s.setClubUrl("other.example/b")
-        val lines = ArrayList<String>(); s.export { _, l -> lines += l }
+        val lines = ArrayList<String>(); s.export { _, l, _ -> lines += l }
         assertEquals("OTHER.EXAMPLE/B", lines[0])
     }
 
     @Test fun aTitleFetchedForAnEarlierUrlIsIgnored() = runBlocking {
         val s = session(); s.addPhoto(photoWithPeople(2)); s.setHand("2"); s.setClubUrl("club.example/b")
         s.setClubTitle("Old club", "club.example/a")          // a slow fetch for what was typed before
-        val lines = ArrayList<String>(); s.export { _, l -> lines += l }
+        val lines = ArrayList<String>(); s.export { _, l, _ -> lines += l }
         assertEquals("CLUB.EXAMPLE/B", lines[0])
     }
 
