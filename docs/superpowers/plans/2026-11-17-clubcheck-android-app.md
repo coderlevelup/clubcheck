@@ -177,9 +177,9 @@
 - Test: `core/src/test/kotlin/app/clubcheck/core/ClubUrlTest.kt`, `app/src/test/kotlin/app/clubcheck/upload/UploadQueueTest.kt`
 
 **Interfaces:**
-- Produces: `fun normaliseClubUrl(input: String): Result<String>` (lower-case host, drop scheme `https://` and a trailing slash, trim; failure over `MAX_URL_BYTES`); `fun parsePageMeta(html: String): Pair<String?, String?>` (title from `og:title` then `<title>`; summary from `og:description` then meta description); `interface CloudApi { suspend fun postCheckIn(payload: ByteArray, image: ByteArray): Boolean }`; Room entities `CheckIn(id, eventId, payloadHex, imagePath, state)` and `Club(url, title, summary)`; `UploadWorker` posts queued check-ins, idempotent on `eventId`
+- Produces: `fun normaliseClubUrl(input: String): Result<String>` (lower-case host, drop scheme `https://` and a trailing slash, trim; failure over `MAX_URL_BYTES`); `fun parsePageMeta(html: String): Pair<String?, String?>` (title from `og:title` then `<title>`; summary from `og:description` then meta description); `interface CloudApi { suspend fun postCheckIn(payload: ByteArray, image: ByteArray): Boolean }`; Room entities `CheckIn(id, eventId, payloadHex, imagePath, state)` and `Club(url, title, summary)`; `UploadWorker` posts queued check-ins, idempotent on `eventId`; `fun originalsToPurge(files: List<StoredOriginal>, nowMs: Long, keepDays: Int = 7): List<StoredOriginal>` with `PurgeOriginalsWorker` (daily) deleting them
 
-- [ ] **Step 1: Failing tests:** `normaliseHandlesCaseSchemeSlash` (`"HTTPS://RSVP.withgoogle.com/events/x/"` gives `"rsvp.withgoogle.com/events/x"`), `normaliseRejectsOver100Bytes`, `normaliseRejectsEmpty`, `pageMetaPrefersOgTags`, `pageMetaFallsBackToTitle`; `uploadRetriesAfterFailureAndNeverDuplicates` (fake `CloudApi` fails once, then succeeds; the queue marks the check-in sent exactly once).
+- [ ] **Step 1: Failing tests:** `normaliseHandlesCaseSchemeSlash` (`"HTTPS://RSVP.withgoogle.com/events/x/"` gives `"rsvp.withgoogle.com/events/x"`), `normaliseRejectsOver100Bytes`, `normaliseRejectsEmpty`, `pageMetaPrefersOgTags`, `pageMetaFallsBackToTitle`; `uploadRetriesAfterFailureAndNeverDuplicates` (fake `CloudApi` fails once, then succeeds; the queue marks the check-in sent exactly once); `purgeSelectsOnlyOriginalsOlderThanSevenDays` (6 days 23 hours kept, 7 days 1 hour purged, blurred exports never selected).
 - [ ] **Step 2: Run** `./gradlew :core:test :app:testDebugUnitTest --tests '*ClubUrlTest*' --tests '*UploadQueueTest*'` — Expected: FAIL.
 - [ ] **Step 3: Implement.** Fetching the page happens in the app over OkHttp with a short timeout; offline stores the URL and fetches the title later.
 - [ ] **Step 4: Run** — Expected: PASS.
@@ -204,7 +204,7 @@
 ### Task 10: Compose UI and view-models
 
 **Files:**
-- Create: `app/src/main/kotlin/app/clubcheck/ui/{CaptureScreen.kt,ReviewScreen.kt,ShareScreen.kt,CheckInViewModel.kt,Nav.kt}`, `app/src/main/AndroidManifest.xml` (camera, coarse location only; no internet beyond the upload worker and page fetch)
+- Create: `app/src/main/kotlin/app/clubcheck/ui/{CaptureScreen.kt,ReviewScreen.kt,ShareScreen.kt,CheckInViewModel.kt,Nav.kt}` (navigation via Navigation Compose, not the Fragment-based Navigation component, which is in maintenance mode per the Compose-first guidance), `app/src/main/AndroidManifest.xml` (camera, coarse location only; no internet beyond the upload worker and page fetch)
 - Test: `app/src/test/kotlin/app/clubcheck/ui/CheckInViewModelTest.kt`
 
 **Interfaces:**
