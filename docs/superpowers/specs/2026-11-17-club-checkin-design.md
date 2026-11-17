@@ -35,15 +35,17 @@ also travel as the image alone, so the image itself is the record.
 - Needing the cloud to make a check-in.
 
 ## Constraints
-- Flutter (one codebase, Android and iOS). Built and tested from a Linux container: the codec,
+- **Android only for now** (changed after review): native Kotlin with Jetpack Compose ("Compose
+  first"). iOS is a later, separate decision. Built and tested from a Linux container: the codec,
   counting logic and cloud can be tested here; on-device camera and ML runtime cannot. The first
   real phone test is a milestone for the user.
 - Chat apps recompress to JPEG (typically quality 60-80) and may downscale (long edge about 1600px
   on some apps).
 
 ## Approaches considered
-- **A. Native cross-platform app (Flutter), on-device ML.** Chosen by the user. Best camera, speed
-  and offline behaviour; costs store builds and no device testing from this container.
+- **A. Native app, on-device ML.** Chosen by the user; first Flutter, then narrowed to Android
+  only with Kotlin and Jetpack Compose. Best camera, speed and offline behaviour; no iOS yet; no
+  device testing from this container.
 - **B. Installable web app (PWA).** Fastest and fully testable here, but weaker offline and camera
   on iOS. Rejected by the user in favour of A.
 - **C. Godot.** Weak camera and ML support. Rejected.
@@ -53,10 +55,21 @@ Image embedding: the user chose the **recompression-proof** route over lossless-
 
 ## The design
 
+### Android stack (my calls, for the plan)
+Kotlin; Jetpack Compose UI; CameraX for capture; MediaPipe/LiteRT for people counting and ML Kit
+for faces; Room for local records; WorkManager for the upload queue (retries when online);
+coarse location only (`ACCESS_COARSE_LOCATION`) via the fused location provider, snapped on the
+device; FileProvider plus the share sheet for the image. The strip, watermark and Reed-Solomon
+codec are plain Kotlin (JVM unit-testable without a phone), checked against test vectors produced
+by the Python spike so both implementations agree. Minimum SDK and exact library versions are the
+builder's call, to be checked against current guidance.
+
 ### Capture and counting (my calls)
 - One check-in = one event with 1..N photos. Camera count for the event = the maximum count
   across its photos (not the sum; avoids double-counting people in overlapping shots).
-- Detector: a TFLite person detector (a small EfficientDet-Lite or YOLO-class model). It counts
+- Detector: an on-device person detector via LiteRT/MediaPipe (a small EfficientDet-Lite class
+  model; Apache-2.0 weights preferred over the AGPL YOLO models used in the spike). Faces: ML Kit
+  face detection (on-device, free) as the face pass. It counts
   people including the backs of heads and partial bodies.
 - Organiser enters a hand count as a range (or a single number, stored as a range of one).
 - Camera count is also a range: tiled detection run at three confidence levels (low, middle,
