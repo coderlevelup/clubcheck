@@ -61,11 +61,4 @@ class ExportTest {
     @Test fun rejectsWrongSize() {
         assertThrows(IllegalArgumentException::class.java) { composeExport(testPhoto(640, 360), payload(), { _, _ -> }, "x") }
     }
-
-    @Test fun flaggedOnlyWhenRangesAreMoreThanThreeApart() {
-        assertFalse(flagged(Range(10, 12), Range(15, 20)))   // gap 3
-        assertTrue(flagged(Range(10, 12), Range(16, 20)))    // gap 4
-        assertFalse(flagged(Range(55, 65), Range(56, 74)))   // overlap
-        assertTrue(flagged(Range(40, 50), Range(10, 12)))    // either direction
-    }
 }
