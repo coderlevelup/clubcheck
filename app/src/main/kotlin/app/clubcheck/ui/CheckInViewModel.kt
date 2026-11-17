@@ -51,7 +51,7 @@ class CheckInViewModel(app: Application) : AndroidViewModel(app) {
 
     private val detector by lazy { MediaPipePersonDetector(app) }
     private val faces by lazy { MlKitFaceDetector() }
-    private fun newSession() = CheckInSession(detector, faces, CoarseLocation(app), BitmapJpegEncoder, installId = installId)
+    private fun newSession() = CheckInSession(detector, faces, CoarseLocation(getApplication<Application>()), BitmapJpegEncoder, installId = installId)
     private var session = newSession()
     private val _ui = MutableStateFlow(CheckInUi())
     val ui: StateFlow<CheckInUi> = _ui.asStateFlow()
