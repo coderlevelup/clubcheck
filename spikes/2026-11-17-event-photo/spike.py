@@ -1,3 +1,4 @@
+import os
 import numpy as np, cv2, struct, zlib, os, io, json, time
 from PIL import Image, ImageDraw, ImageFont
 from reedsolo import RSCodec
@@ -8,7 +9,7 @@ DELTA=80.0; COEF=(1,1); T_DARK=125
 URL=b'rsvp.withgoogle.com/events/android-developer-day-capetown'
 
 # ---------- 1. blur ----------
-def blur_heads(im, boxes):
+def blur_heads(im, boxes, faces=()):
     """Gaussian blur on a soft ellipse around each estimated head (top of each person box)."""
     out=im.astype(np.float32); Hh,Ww=im.shape[:2]
     for x1,y1,x2,y2,s in boxes:
@@ -23,6 +24,18 @@ def blur_heads(im, boxes):
         if roi.size==0: continue
         bl=cv2.GaussianBlur(roi,(0,0),sig).astype(np.float32)
         m=np.zeros(roi.shape[:2],np.float32)
+        cv2.ellipse(m,(int(cx-X1),int(cy-Y1)),(int(rx),int(ry)),0,0,360,1.0,-1)
+        m=cv2.GaussianBlur(m,(0,0),max(sig*0.25,2))[...,None]
+        out[Y1:Y2,X1:X2]=out[Y1:Y2,X1:X2]*(1-m)+bl*m
+    # face pass: blur every detected face (padded) on top of the box-based head estimate
+    for x1,y1,x2,y2,sc in faces:
+        w=x2-x1; h=y2-y1; d=max(w,h,24)
+        cx=(x1+x2)/2; cy=(y1+y2)/2; rx=0.85*d; ry=0.95*d; sig=max(0.45*d,8)
+        X1=int(max(cx-rx-3*sig,0));X2=int(min(cx+rx+3*sig,Ww));Y1=int(max(cy-ry-3*sig,0));Y2=int(min(cy+ry+3*sig,Hh))
+        src=np.clip(out[Y1:Y2,X1:X2],0,255).astype(np.uint8)
+        if src.size==0: continue
+        bl=cv2.GaussianBlur(src,(0,0),sig).astype(np.float32)
+        m=np.zeros(src.shape[:2],np.float32)
         cv2.ellipse(m,(int(cx-X1),int(cy-Y1)),(int(rx),int(ry)),0,0,360,1.0,-1)
         m=cv2.GaussianBlur(m,(0,0),max(sig*0.25,2))[...,None]
         out[Y1:Y2,X1:X2]=out[Y1:Y2,X1:X2]*(1-m)+bl*m
@@ -108,7 +121,8 @@ def try_decode(coded_bytes):
 if __name__=='__main__':
     t0=time.time()
     src=cv2.imread(SRC); boxes=np.load(f'{OUT}/boxes.npy'); count=len(boxes)
-    blurred,mask=blur_heads(src,boxes)
+    faces=np.load(f'{OUT}/faces.npy'); print('faces blurred',len(faces))
+    blurred,mask=blur_heads(src,boxes,faces)
     small=cv2.resize(blurred,(W,H),interpolation=cv2.INTER_AREA)
     cv2.imwrite(f'{OUT}/blurred_only.jpg',small,[cv2.IMWRITE_JPEG_QUALITY,90])
     # overlay

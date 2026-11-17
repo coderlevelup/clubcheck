@@ -40,10 +40,15 @@ Watermark visibility: PSNR 40 dB against the unmarked image.
 - One photo. JPEG was simulated with OpenCV, not by WhatsApp itself. Real phone test still needed.
 - The decoder assumes the known export size and aspect. There is no geometric sync, so rotation,
   cropping or a different aspect ratio are untested and would likely fail.
-- Blurring is a Gaussian on a soft ellipse estimated from the top of each person box (head
-  diameter about min(0.5 x box width, 0.22 x box height)). On the photo it covers most heads, but
-  a zoomed check found at least one partly visible profile (a person whose box sat low). No face
-  detector ran. A real face pass plus a check is required before trusting the blur.
+- Blurring is two passes of Gaussian blur on soft ellipses: (1) a head estimated from the top of
+  each person box, and (2) every detected face (`faces.py`: a YOLOv8n-face model run on the whole
+  image plus 3x3 tiles, confidence 0.15, 36 candidates; low threshold on purpose, since extra blur
+  is the safe error). The pass fixed the partly visible profile found earlier. Checked by eye on
+  zoomed crops of one photo only, so a false-negative rate is unknown and a measured check on many
+  photos is still required.
+- Licensing: Ultralytics YOLO is AGPL-3.0 and the face weights came from a third-party GitHub
+  release. For a shipped app, pick a model with a licence that fits (or buy the enterprise
+  licence).
 - The footer shows the repo URL as visible text (not in the encoded payload).
 - The strip is drawn over the photo and hides its left edge. The real design should add it as a
   margin outside the picture.
