@@ -1,4 +1,3 @@
-import os
 import numpy as np, cv2, struct, zlib, os, io, json, time
 from PIL import Image, ImageDraw, ImageFont
 from reedsolo import RSCodec
@@ -10,18 +9,24 @@ URL=b'rsvp.withgoogle.com/events/android-developer-day-capetown'
 
 # ---------- 1. blur ----------
 def blur_heads(im, boxes):
-    out=im.copy(); mask=np.zeros(im.shape[:2],np.uint8)
+    """Gaussian blur on a soft ellipse around each estimated head (top of each person box)."""
+    out=im.astype(np.float32); Hh,Ww=im.shape[:2]
     for x1,y1,x2,y2,s in boxes:
-        h=y2-y1; w=x2-x1
-        hy2=int(y1+min(0.30*h,0.75*w)); pad=int(0.08*w)
-        cv2.rectangle(mask,(max(int(x1-pad),0),max(int(y1-pad),0)),(int(x2+pad),hy2),255,-1)
-    k=int(max(im.shape[:2])*0.012)*2+1
-    bl=cv2.GaussianBlur(im,(0,0),sigmaX=14)
-    # pixelate on top of gaussian so faces cannot be recovered
-    sm=cv2.resize(bl,(im.shape[1]//110,im.shape[0]//110),interpolation=cv2.INTER_AREA)
-    px=cv2.resize(sm,(im.shape[1],im.shape[0]),interpolation=cv2.INTER_NEAREST)
-    m=cv2.GaussianBlur(mask,(0,0),6)[...,None]/255.0
-    return (out*(1-m)+px*m).astype(np.uint8), mask
+        w=x2-x1; h=y2-y1
+        d=min(0.5*w,0.22*h)                    # estimated head diameter
+        d=max(d,28)
+        cx=(x1+x2)/2; cy=y1+0.55*d
+        rx=0.75*d; ry=0.8*d
+        sig=max(0.5*d,10)
+        X1=int(max(cx-rx-3*sig,0));X2=int(min(cx+rx+3*sig,Ww));Y1=int(max(cy-ry-3*sig,0));Y2=int(min(cy+ry+3*sig,Hh))
+        roi=im[Y1:Y2,X1:X2]
+        if roi.size==0: continue
+        bl=cv2.GaussianBlur(roi,(0,0),sig).astype(np.float32)
+        m=np.zeros(roi.shape[:2],np.float32)
+        cv2.ellipse(m,(int(cx-X1),int(cy-Y1)),(int(rx),int(ry)),0,0,360,1.0,-1)
+        m=cv2.GaussianBlur(m,(0,0),max(sig*0.25,2))[...,None]
+        out[Y1:Y2,X1:X2]=out[Y1:Y2,X1:X2]*(1-m)+bl*m
+    return np.clip(out,0,255).astype(np.uint8), None
 
 # ---------- 2. payload ----------
 def crc16(b):
@@ -117,6 +122,8 @@ if __name__=='__main__':
     d.text((STRIP_W+22,16),'ANDROID DEVELOPER DAY CAPE TOWN',font=f1,fill=(233,241,236))
     d.text((STRIP_W+22,52),'17 NOV 2026 10:42 SAST   33.90S 18.40E',font=f2,fill=(159,217,191))
     d.text((STRIP_W+22,80),f'HAND {hand}  CAMERA {count}  {"CHECK COUNTS" if flag else "COUNTS AGREE"}',font=f2,fill=(240,160,102) if flag else (159,217,191))
+    d.rectangle([STRIP_W,H-40,W,H],fill=(0,0,0,185))
+    d.text((STRIP_W+14,H-32),'github.com/coderlevelup/clubcheck',font=f2,fill=(233,241,236))
     comp=cv2.cvtColor(np.array(pil),cv2.COLOR_RGB2BGR)
     payload=make_payload(ts,tz15,int(lat*100),int(lon*100),hand,count,1)
     coded=bytes(rsc.encode(payload)); print('payload',len(payload),'coded',len(coded),'bits',len(coded)*8)

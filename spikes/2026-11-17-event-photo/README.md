@@ -40,8 +40,11 @@ Watermark visibility: PSNR 40 dB against the unmarked image.
 - One photo. JPEG was simulated with OpenCV, not by WhatsApp itself. Real phone test still needed.
 - The decoder assumes the known export size and aspect. There is no geometric sync, so rotation,
   cropping or a different aspect ratio are untested and would likely fail.
-- Blurring uses the top part of each person box only. No face detector ran, so some faces may
-  survive; this needs a real face pass and a check.
+- Blurring is a Gaussian on a soft ellipse estimated from the top of each person box (head
+  diameter about min(0.5 x box width, 0.22 x box height)). On the photo it covers most heads, but
+  a zoomed check found at least one partly visible profile (a person whose box sat low). No face
+  detector ran. A real face pass plus a check is required before trusting the blur.
+- The footer shows the repo URL as visible text (not in the encoded payload).
 - The strip is drawn over the photo and hides its left edge. The real design should add it as a
   margin outside the picture.
 - Location and time in the overlay were hard-coded for the test.
