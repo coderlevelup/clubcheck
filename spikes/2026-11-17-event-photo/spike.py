@@ -2,7 +2,7 @@ import os
 import numpy as np, cv2, struct, zlib, os, io, json, time
 from PIL import Image, ImageDraw, ImageFont
 from reedsolo import RSCodec
-SRC=os.environ['PHOTO']
+SRC=os.environ.get('PHOTO')
 OUT='/tmp/spike/out'; W,H=1280,720
 CELL=8; COLS=13; STRIP_W=CELL*COLS; NSYM=40
 DELTA=80.0; COEF=(1,1); T_DARK=125

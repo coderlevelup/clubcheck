@@ -33,7 +33,7 @@
 2. **Location permission denied or off.** The check-in must still succeed with "no location" encoded as sentinel `lat = lon = Short.MIN_VALUE` and no "area" text on the overlay. (Tasks 1, 7)
 3. **Hand range typed backwards (65-55), blank, or one number.** Normalise reversed input, accept a single number as a range of one, refuse blank. (Task 5)
 4. **A very bright photo.** Too few dark blocks for the watermark: export must still succeed, strip must still decode, and the result must report the weak watermark. (Task 3)
-5. **Club URL too long or odd (uppercase, trailing slash, no scheme).** Normalise; reject over 100 bytes with a clear message instead of overflowing the strip. (Tasks 1, 8)
+5. **Club URL too long or odd (uppercase, trailing slash, no scheme).** Normalise; reject over 65 bytes with a clear message instead of overflowing the strip. (Tasks 1, 8)
 
 ---
 
@@ -52,11 +52,11 @@
   - `data class Payload(val eventId: ByteArray, val utcSeconds: Long, val tz15: Int, val cell: CoarseCell, val hand: Range, val camera: Range, val cameraPoint: Int, val photos: Int, val installId: ByteArray, val url: String)`
   - `fun Payload.encode(): ByteArray` (includes CRC), `fun Payload.Companion.decode(bytes: ByteArray): Payload?` (null on CRC or length failure)
   - `object ReedSolomon { const val PARITY = 40; fun encode(data: ByteArray): ByteArray; fun decode(coded: ByteArray): ByteArray? }`
-  - `const val MAX_URL_BYTES = 100`
+  - `const val MAX_URL_BYTES = 65`
 
 - [ ] **Step 1: Scaffold.** Install the Android SDK command-line tools under `/opt/android-sdk` with platform and build-tools for the chosen compileSdk and accept licences; `gradle wrapper`; two modules building empty. Verify: `./gradlew :core:test :app:assembleDebug` succeeds (no tests yet is fine).
 - [ ] **Step 2: Write `vectors.py`** reusing `spike.py` (`make_payload`, `rsc.encode`) to emit three vectors (full payload; no-location payload; max-length URL) as hex `payload` and `coded`. Run it and commit the JSON.
-- [ ] **Step 3: Write failing tests** in `PayloadTest`: `encodeMatchesPythonVectors` (hex equality for payload and for `ReedSolomon.encode(payload)`), `decodeRoundTrips`, `noLocationUsesSentinel` (`CoarseCell.NONE` encodes as `Short.MIN_VALUE` twice and decodes back to `NONE`), `corruptedCrcReturnsNull`, `rsCorrectsTwentyByteErrors` (flip 20 bytes of `coded`, `decode` returns the original), `rsFailsBeyondCapacity` (flip 25 bytes, `decode` returns null or a payload whose CRC check fails), `urlOverMaxIsRejected` (101-byte URL throws `IllegalArgumentException`).
+- [ ] **Step 3: Write failing tests** in `PayloadTest`: `encodeMatchesPythonVectors` (hex equality for payload and for `ReedSolomon.encode(payload)`), `decodeRoundTrips`, `noLocationUsesSentinel` (`CoarseCell.NONE` encodes as `Short.MIN_VALUE` twice and decodes back to `NONE`), `corruptedCrcReturnsNull`, `rsCorrectsTwentyByteErrors` (flip 20 bytes of `coded`, `decode` returns the original), `rsFailsBeyondCapacity` (flip 25 bytes, `decode` returns null or a payload whose CRC check fails), `urlOverMaxIsRejected` (66-byte URL throws `IllegalArgumentException`).
 - [ ] **Step 4: Run** `./gradlew :core:test` — Expected: FAIL (types undefined).
 - [ ] **Step 5: Implement** the three files. Reed-Solomon via ZXing `GenericGF.QR_CODE_FIELD_256` (prim 0x11D, base 0), `ReedSolomonEncoder`/`Decoder`; CRC16 bitwise as in the spike. If a vector disagrees, the Python spike is the reference: adjust Kotlin, not the vector.
 - [ ] **Step 6: Run** `./gradlew :core:test` — Expected: PASS.
@@ -75,7 +75,7 @@
   - `object StripCodec { const val CELL = 8; const val COLS = 13; const val WIDTH_PX = 104; fun capacityBytes(height: Int): Int; fun draw(img: RgbImage, coded: ByteArray); fun read(img: RgbImage, codedLength: Int): ByteArray }`
   - Test util: `fun jpegRoundTrip(img: RgbImage, quality: Int, scale: Double = 1.0): RgbImage` (ImageIO, resizes back to original size)
 
-- [ ] **Step 1: Failing tests:** `drawThenReadIsExact` on a 1280x720 image; `capacityIs1032BitsFor720Rows` (`capacityBytes(720) == 129`); `payloadTooLargeThrows` (coded length 130); `survivesJpegQ50` and `survivesResize60PlusJpegQ75` (decode the full payload through `ReedSolomon.decode`); `fillIsNotFlat` (unused cells are not all one colour).
+- [ ] **Step 1: Failing tests:** `drawThenReadIsExact` on a 1280x720 image; `capacityIs139BytesFor720Rows` (`capacityBytes(720) == 139`); `payloadTooLargeThrows` (coded length 140); `survivesJpegQ50` and `survivesResize60PlusJpegQ75` (decode the full payload through `ReedSolomon.decode`); `fillIsNotFlat` (unused cells are not all one colour).
 - [ ] **Step 2: Run** `./gradlew :core:test --tests '*StripCodecTest*'` — Expected: FAIL.
 - [ ] **Step 3: Implement** per the strip constraint; `read` thresholds the inner 4x4 of each cell at luma 127.
 - [ ] **Step 4: Run** the same command — Expected: PASS.
@@ -179,7 +179,7 @@
 **Interfaces:**
 - Produces: `fun normaliseClubUrl(input: String): Result<String>` (lower-case host, drop scheme `https://` and a trailing slash, trim; failure over `MAX_URL_BYTES`); `fun parsePageMeta(html: String): Pair<String?, String?>` (title from `og:title` then `<title>`; summary from `og:description` then meta description); `interface CloudApi { suspend fun postCheckIn(payload: ByteArray, image: ByteArray): Boolean }`; Room entities `CheckIn(id, eventId, payloadHex, imagePath, state)` and `Club(url, title, summary)`; `UploadWorker` posts queued check-ins, idempotent on `eventId`; `fun originalsToPurge(files: List<StoredOriginal>, nowMs: Long, keepDays: Int = 7): List<StoredOriginal>` with `PurgeOriginalsWorker` (daily) deleting them
 
-- [ ] **Step 1: Failing tests:** `normaliseHandlesCaseSchemeSlash` (`"HTTPS://RSVP.withgoogle.com/events/x/"` gives `"rsvp.withgoogle.com/events/x"`), `normaliseRejectsOver100Bytes`, `normaliseRejectsEmpty`, `pageMetaPrefersOgTags`, `pageMetaFallsBackToTitle`; `uploadRetriesAfterFailureAndNeverDuplicates` (fake `CloudApi` fails once, then succeeds; the queue marks the check-in sent exactly once); `purgeSelectsOnlyOriginalsOlderThanSevenDays` (6 days 23 hours kept, 7 days 1 hour purged, blurred exports never selected).
+- [ ] **Step 1: Failing tests:** `normaliseHandlesCaseSchemeSlash` (`"HTTPS://RSVP.withgoogle.com/events/x/"` gives `"rsvp.withgoogle.com/events/x"`), `normaliseRejectsOver65Bytes`, `normaliseRejectsEmpty`, `pageMetaPrefersOgTags`, `pageMetaFallsBackToTitle`; `uploadRetriesAfterFailureAndNeverDuplicates` (fake `CloudApi` fails once, then succeeds; the queue marks the check-in sent exactly once); `purgeSelectsOnlyOriginalsOlderThanSevenDays` (6 days 23 hours kept, 7 days 1 hour purged, blurred exports never selected).
 - [ ] **Step 2: Run** `./gradlew :core:test :app:testDebugUnitTest --tests '*ClubUrlTest*' --tests '*UploadQueueTest*'` — Expected: FAIL.
 - [ ] **Step 3: Implement.** Fetching the page happens in the app over OkHttp with a short timeout; offline stores the URL and fetches the title later.
 - [ ] **Step 4: Run** — Expected: PASS.
