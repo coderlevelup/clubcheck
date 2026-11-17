@@ -1,6 +1,7 @@
 package app.clubcheck.ml
 
 import app.clubcheck.core.Box
+import app.clubcheck.core.FaceFinder
 import app.clubcheck.core.RgbImage
 import app.clubcheck.core.crop
 import app.clubcheck.core.nms
@@ -16,7 +17,7 @@ import com.google.mlkit.vision.face.FaceDetectorOptions
  * because faces in a crowd are small. ML Kit gives no per-face score, so every face returned gets blurred.
  * Blocking: call from a background thread.
  */
-class MlKitFaceDetector : AutoCloseable {
+class MlKitFaceDetector : FaceFinder, AutoCloseable {
     private val detector = FaceDetection.getClient(
         FaceDetectorOptions.Builder()
             .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
@@ -24,7 +25,7 @@ class MlKitFaceDetector : AutoCloseable {
             .build()
     )
 
-    fun detect(img: RgbImage): List<Box> {
+    override fun detect(img: RgbImage): List<Box> {
         val found = ArrayList<Box>()
         fun run(part: RgbImage, ox: Int, oy: Int) {
             val bmp = part.toBitmap()

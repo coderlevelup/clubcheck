@@ -13,8 +13,10 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1"
+        // Base URL of the ClubCheck service (built in a later plan). Empty: check-ins stay on the phone.
+        buildConfigField("String", "CLOUD_URL", "\"\"")
     }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
     testOptions { unitTests.all { it.useJUnitPlatform() } }
@@ -35,6 +37,13 @@ dependencies {
     implementation(libs.mediapipe.vision)
     implementation(libs.mlkit.face)
     implementation(libs.exifinterface)
+    implementation(libs.camera.core)
+    implementation(libs.camera.camera2)
+    implementation(libs.camera.lifecycle)
+    implementation(libs.camera.view)
+    implementation(libs.lifecycle.viewmodel.compose)
+    implementation(libs.lifecycle.runtime.compose)
+    implementation(libs.navigation.compose)
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.coroutines.core)
     testRuntimeOnly(libs.junit.platform.launcher)
